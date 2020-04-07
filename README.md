@@ -5,7 +5,7 @@
 Microdot is a simple dotfiles manager
 
 To be able to have multiple sets of dotfiles for different systems,
-dotfiles are organized in channels.
+dotfiles are organized in channels.  
 Channels are just subdirectories inside the dotfiles directory.
 
 A directory layout with 3 channels (common, laptop1, laptop2) would
@@ -35,9 +35,6 @@ To list available dotfiles in all channels:
 $ microdot list
 
 Dotfiles dir: /home/eco/sync/dotfiles
-
-channel: laptop1
-[D] .config/i3
 
 channel: common
 [D] .vim

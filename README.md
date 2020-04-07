@@ -53,7 +53,7 @@ channel: laptop2
 [F] .bashrc
 ```
 
-To use a dotfile, a symlink needs to be created in the appropriate location in the filesystem.
+To use a dotfile from channel "laptop1", a symlink needs to be created in the appropriate location in the filesystem.
 
 ```
 $ microdot link .bashrc -c laptop1

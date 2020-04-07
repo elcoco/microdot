@@ -6,13 +6,13 @@ TODO: update readme
 Microdot is a simple dotfiles manager.
 
 What microdot does:
-- organize multiple sets of dotfiles for multiple systems into channels.
-- keep all dotfiles in one dir
+- organize multiple sets of dotfiles for multiple systems into channels
+- keep all dotfiles in one directory
 - provide tools to link and unlink the files
 
 What microdot doesn't:
 - syncing can be done with tools like nextcloud
-- for versioning, use git
+- for versioning, use git.
 
 ### Usage
 Channels are just subdirectories inside the dotfiles directory.

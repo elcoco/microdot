@@ -1,0 +1,549 @@
+#!/usr/bin/env python3
+
+"""
+Microdot :: A management tool for dotfiles
+
+Usage:
+    microdot [options] list
+    microdot [options] init <name>
+    microdot [options] link [<name>]
+    microdot [options] unlink [<name>]
+    microdot [options] newchannel <name>
+
+Options:
+    -c, --channel <channel>      specify channel [default: common]
+    -h, --help                   help
+
+Introduction:
+    To solve the problem of having different collections of dotfiles
+    for different machines, the dotfiles are organized into channels.
+    If no channel is specified, the default channel "common" is assumed.
+
+    At first start a config file is written to:
+        $XDG_CONFIG_HOME/microdot/microdot.yaml
+
+Examples:
+    Show a list of all available dotfiles in the dotfiles directory
+    $ microdot list
+
+    Move a dotfile to the dotfiles directory and create a symlink
+    $ microdot init ~/.config/ranger -c workstation
+
+    Symlink a dotfile in the dotfiles directory to a path relative to $HOME
+    $ microdot link .bashrc
+
+    Symlink all dotfiles within the channel "workstation" to a path relative
+    to $HOME
+    $ microdot link -c workstation
+
+    Unlink a dotfile. This will remove the symlink but keep the data in the
+    dotfiles directory
+    $ microdot unlink .config/ranger -c workstation
+
+    Stop watching all dotfiles in channel workstation
+    $ microdot unlink -c workstation
+"""
+
+import os, sys
+import logging
+
+try:
+    import yaml
+    import shutil
+    from docopt import docopt, DocoptExit
+except ImportError as e:
+    print(f"ImportError: {e}")
+    sys.exit(1)
+
+logger = logging.getLogger(__name__)
+
+
+class MicrodotException(Exception):
+    pass
+
+
+class Config(dict):
+    def __init__(self, path=False):
+        self._config_path = path
+        self._config = {}
+
+        if not path:
+            configdir = os.path.expanduser('~') + '/.config/' + os.path.basename(sys.argv[0]).split(".")[0]
+            self._config_path = configdir + '/' + os.path.basename(sys.argv[0]).split(".")[0] + '.yaml'
+
+    def __str__(self):
+        return str(self._config)
+
+    def __bool__(self):
+        # is called when object is tested with: if <object> == True
+        if len(self._config) > 0:
+            return True
+        else:
+            return False
+
+    def __getitem__(self, key):
+        try:
+            return self._config[key]
+        except KeyError as e:
+            raise ConfigKeyError(f"Key doesn't exist, key={key}")
+
+    def __setitem__(self, key, value):
+        try:
+            self._config[key] = value
+        except KeyError as e:
+            logger.error(f"Failed to set key, Key doesn't exist, key={key}")
+
+    def set_path(self, path):
+        self._config_path = path
+
+    def set_config_data(self, data):
+        self._config = data
+
+    def keys(self):
+        # override dict keys method
+        return self._config.keys()
+
+    def test_file(self, path):
+        """ Test if file exists """
+        try:
+            with open(path) as f:
+                return True
+        except IOError as e:
+            return False
+
+    def ensure_dir(self, dirname):
+        if not os.path.exists(dirname):
+            try:
+                os.makedirs(dirname)
+                logger.debug(f"Created dir: {dirname}")
+            except BaseException as e:
+                raise ConfigCreateDirectoryError(f"Failed to create dir: {dirname}, message={e}")
+
+    def configfile_exists(self):
+        return self.test_file(self._config_path)
+
+    def load(self, path=False):
+        if not path:
+            path = self._config_path
+
+            try:
+                with open(path, 'r') as configfile:
+                    self._config = yaml.safe_load(configfile)
+                    logger.debug(f"Loaded config file, path={path}")
+                return True
+            except yaml.YAMLError as e:
+                raise ConfigParseError(f"Failed to load YAML in config file: {path}\n{e}")
+            except FileNotFoundError as e:
+                raise ConfigFileNotFoundError(f"Config file doesn't exist: {path}\n{e}")
+
+    def write(self, path=False):
+        if not path:
+            path = self._config_path
+
+        self.ensure_dir(os.path.dirname(path))
+
+        with open(path, 'w') as outfile:
+            try:
+                yaml.dump(self._config, outfile, default_flow_style=False)
+                logger.debug(f"Wrote config to: {path}")
+            except yaml.YAMLError as e:
+                raise ConfigParseError(f"Failed to write YAML in config file: {path}, message={e}")
+
+
+class Helper():
+    def colorize(self, string, color):
+        colors = {}
+        colors['black']    = '\033[0;30m'
+        colors['bblack']   = '\033[1;30m'
+        colors['red']      = '\033[0;31m'
+        colors['bred']     = '\033[1;31m'
+        colors['green']    = '\033[0;32m'
+        colors['bgreen']   = '\033[1;32m'
+        colors['yellow']   = '\033[0;33m'
+        colors['byellow']  = '\033[1;33m'
+        colors['blue']     = '\033[0;34m'
+        colors['bblue']    = '\033[1;34m'
+        colors['magenta']  = '\033[0;35m'
+        colors['bmagenta'] = '\033[1;35m'
+        colors['cyan']     = '\033[0;36m'
+        colors['bcyan']    = '\033[1;36m'
+        colors['white']    = '\033[0;37m'
+        colors['bwhite']   = '\033[1;37m'
+        colors['reset']    = '\033[0m'
+
+        return colors[color] + string + colors["reset"]
+
+    def ensure_dir(self, dirname):
+        if not os.path.exists(dirname):
+            try:
+                os.makedirs(dirname, exist_ok=True)
+                return True
+            except OSError as e:
+                print(e)
+                raise MicrodotException(f"Failed to create dir: {dirname}")
+
+    def copy_dir(self, path_src, path_dest):
+        try:
+            shutil.copytree(path_src, path_dest, symlinks=True)
+            print(f"Copied dir: {path_src} -> {path_dest}")
+        except OSError as e:
+            print(e)
+            raise MicrodotException(f"Failed to copy dir: {path_src} -> {path_dest}")
+
+    def copy_file(self, path_src, path_dest):
+        try:
+            shutil.copy2(path_src, path_dest)
+            print(f"Copied file: {path_src} -> {path_dest}")
+        except OSError as e:
+            print(e)
+            raise MicrodotException(f"Failed to copy file: {path_src} -> {path_dest}")
+
+    def create_link(self, name, target):
+        try:
+            os.symlink(target, name)
+            print(f"Created link: {name} -> {target}")
+        except OSError as e:
+            print(e)
+            raise MicrodotException(f"Failed to create link: {name} -> {target}")
+
+    def remove_path(self, path):
+        if os.path.isfile(path) and not os.path.islink(path):
+            try:
+                print('Removed file:',path)
+                os.remove(path)
+            except OSError as e:
+                print(e)
+                raise MicrodotException(f"Failed to remove file: {path}")
+
+        elif os.path.isdir(path) and not os.path.islink(path):
+            try:
+                shutil.rmtree(path)
+                print('Removed dir:',path)
+            except OSError as e:
+                print(e)
+                raise MicrodotException(f"Failed to remove dir: {path}")
+
+        elif os.path.islink(path):
+            try:
+                os.unlink(path)
+                print('Removed link:',path)
+            except OSError as e:
+                raise MicrodotException(f"Failed to remove link: {path}")
+
+        else:
+            raise MicrodotException(f"Failed to remove path, path doesn't exist: {path}")
+
+    def confirm(self, msg):
+        if input(msg + ' [y/N] ').lower() == 'y':
+            return True
+
+
+class Dotfile(Helper):
+    def __init__(self, path, config, channel):
+        self.c = config
+        userdir = os.path.expanduser('~')
+
+        self.rel_path = path
+        self.link_path = os.path.join(userdir, self.rel_path)
+        self.target_path = os.path.join(self.c['general']['dotfiles_dir'], channel, self.rel_path)
+        self.filename = os.path.basename(self.rel_path)
+        self.channel = channel
+
+    def do_init(self):
+        if self.is_linked():
+            print("Failed to init, dotfile is already linked")
+            return
+
+        if not self.link_is_dir() and not self.link_is_file():
+            print(f"Failed to init, file or directory doesn't exist: {self.link_path}")
+            return
+
+        if self.link_is_link():
+            print(f"Failed to init, link exists at: {self.link_path}")
+            return
+
+        if self.target_is_dir():
+            print(f"Failed to init, target directory already exists: {self.target_path}")
+            return
+
+        if self.target_is_file():
+            print(f"Failed to init, target file already exists: {self.target_path}")
+            return
+
+        if not self.confirm(f"Move {self.link_path} to dotfiles directory?"):
+            return
+
+        # copy file or dir to dotfiles dir
+        if self.link_is_dir():
+            try:
+                self.copy_dir(self.link_path, self.target_path)
+            except MicrodotException as e:
+                print(e)
+                return
+
+        elif self.link_is_file():
+            try:
+                self.copy_file(self.link_path, self.target_path)
+            except MicrodotException as e:
+                print(e)
+                return
+        else:
+            print("Something went wrong")
+            return
+
+        # remove the file or directory
+        try:
+            self.remove_path(self.link_path)
+        except MicrodotException as e:
+            print(e)
+            return
+
+        # create link
+        self.do_link()
+
+    def do_unlink(self):
+        if not self.is_linked():
+            print("Failed to unlink, dotfile is not linked")
+            return
+
+        try:
+            self.remove_path(self.link_path)
+        except MicrodotException as e:
+            print("Failed to unlink, couldn't remove link")
+
+    def do_link(self):
+        if self.is_linked():
+            print("Failed to link, dotfile is already linked")
+            return
+
+        if self.link_is_link():
+            print(f"Failed to link, link already exists:\n{self.link_path} -> {os.path.realpath(self.link_path)}")
+            return
+
+        if self.link_is_dir():
+            print(f"Failed to link, directory already exists: {self.link_path}")
+            return
+
+        if self.link_is_file():
+            print(f"Failed to link, file already exists: {self.link_path}")
+            return
+
+        try:
+            self.create_link(self.link_path, self.target_path)
+        except MicrodotException as e:
+            print("Failed to link, couldn't create link")
+
+    def is_linked(self):
+        return os.path.realpath(self.link_path) == self.target_path
+
+    def target_is_dir(self):
+        return os.path.isdir(self.target_path)
+
+    def target_is_file(self):
+        return os.path.isfile(self.target_path)
+
+    def link_is_dir(self):
+        return os.path.isdir(self.link_path)
+
+    def link_is_link(self):
+        return os.path.islink(self.link_path)
+
+    def link_is_file(self):
+        return os.path.isfile(self.link_path)
+
+    def debug(self):
+        print(f"channel:     {self.channel}")
+        print(f"rel_path:    {self.rel_path}")
+        print(f"link_path:   {self.link_path}")
+        print(f"target_path: {self.target_path}")
+        print(f"filename:    {self.filename}")
+        print()
+
+
+class App(Helper):
+    def load_config_defaults(self):
+        homedir = os.path.expanduser('~')
+
+        self.c['general'] = {}
+        self.c['general']['dotfiles_dir'] = os.path.join(homedir, 'sync/dotfiles')
+        self.c['general']['check_dirs'] = ['.config']
+
+        self.c['colors'] = {}
+        self.c['colors']["channel_name"] = 'magenta'
+        self.c['colors']["dotfiles_dir"] = 'blue'
+        self.c['colors']["linked"]      = 'green'
+        self.c['colors']["unlinked"]    = 'reset'
+
+    def get_channel_names(self):
+        return [ f.name for f in os.scandir(self.c['general']['dotfiles_dir']) if f.is_dir() ]
+
+    def init_obj(self):
+        dotfiles_dir = self.c['general']['dotfiles_dir']
+
+        # list containing all dotfiles objects
+        self.dotfiles = []
+
+        for channel in self.get_channel_names():
+
+            # absolute paths in sync dir
+            abs_check_dirs = [os.path.join(dotfiles_dir, channel, check_dir) for check_dir in self.c['general']['check_dirs']]
+
+            # add root of sync dir to list
+            abs_check_dirs.insert(0, os.path.join(dotfiles_dir, channel))
+
+            # initiate the dotfiles objects
+            for root, dirs, files in os.walk(os.path.join(dotfiles_dir, channel)):
+
+                # do not add root dirs
+                if not root in abs_check_dirs:
+                    continue
+
+                # work with relative dirs / files
+                rel_root = root.lstrip(os.path.join(dotfiles_dir, channel))
+
+                # sort alphabetically
+                dirs.sort()
+                files.sort()
+
+                for d in dirs:
+                    # do not add the root dirs
+                    if d in self.c['general']['check_dirs']:
+                        continue
+
+                    dotfile = Dotfile(os.path.join(rel_root, d), self.c, channel)
+                    self.dotfiles.append(dotfile)
+
+                for f in files:
+                    dotfile = Dotfile(os.path.join(rel_root, f), self.c, channel)
+                    self.dotfiles.append(dotfile)
+
+    def get_dotfile_by_relpath(self, rel_path, channel):
+        for df in self.dotfiles:
+            if df.rel_path == rel_path and df.channel == channel:
+                return df
+
+    def list(self):
+        """ list those damn dotfiles """
+        color_dotfiles_dir = self.c["colors"]["dotfiles_dir"]
+        color_channel_name = self.c["colors"]["channel_name"]
+        color_linked      = self.c["colors"]["linked"]
+        color_unlinked    = self.c["colors"]["unlinked"]
+
+        print(self.colorize('\nDotfiles dir:', color_dotfiles_dir), self.c['general']['dotfiles_dir'])
+        print()
+
+        for channel in self.get_channel_names():
+            print(self.colorize(f"channel: {channel}", color_channel_name))
+            for df in sorted(self.dotfiles, key=lambda dotfile: (dotfile.target_is_dir(), dotfile.is_linked()), reverse=True):
+                if df.channel == channel:
+                    color = color_linked if df.is_linked() else color_unlinked
+
+                    if df.target_is_file():
+                        print(self.colorize(f"[F] {df.rel_path}", color))
+                    elif df.target_is_dir():
+                        print(self.colorize(f"[D] {df.rel_path}", color))
+            print()
+
+    def create_channel(self, name):
+        return self.ensure_dir(os.path.join(self.c['general']['dotfiles_dir'], name))
+
+    def link(self, rel_path, channel):
+        df = self.get_dotfile_by_relpath(rel_path, channel)
+        if df:
+            return df.do_link()
+
+        print(f"Failed to link, dotfile not found in channel {channel}")
+
+    def link_all(self, channel):
+        if not self.confirm(f"Link all dotfiles in channel {channel}?"):
+            return
+
+        for df in [x for x in self.dotfiles if x.channel == channel]:
+            df.do_link()
+
+    def init(self, rel_path, channel):
+        # handle paths with '~' or '../filename'
+        abs_path = os.path.abspath(rel_path)
+        rel_path = abs_path.replace(os.path.expanduser('~') + '/', "")
+        df = Dotfile(rel_path, self.c, channel)
+        return df.do_init()
+
+    def unlink(self, rel_path, channel):
+        df = self.get_dotfile_by_relpath(rel_path, channel)
+        if df:
+            return df.do_unlink()
+
+        print(f"Failed to unlink, dotfile not found in channel {channel}")
+
+    def unlink_all(self, channel):
+        if not self.confirm(f"Unlink all dotfiles in channel {channel}?"):
+            return
+
+        for df in [x for x in self.dotfiles if x.channel == channel]:
+            df.do_unlink()
+
+    def parse_opt(self):
+        # when no args are given or syntax eror, display full usage info
+        try:
+            args = docopt(__doc__)
+        except DocoptExit:
+            print(__doc__)
+            return
+
+        channel = args["--channel"]
+        name = args["<name>"]
+
+        if channel not in self.get_channel_names():
+            if not self.confirm("Channel doesn't exist, do you want to create it?"):
+                return
+            self.create_channel(channel)
+
+        if args["list"]:
+            self.list()
+
+        elif args["link"]:
+            if name:
+                self.link(name, channel)
+            else:
+                self.link_all(channel)
+
+        elif args["init"]:
+            self.init(name, channel)
+
+        elif args["unlink"]:
+            if name:
+                self.unlink(name, channel)
+            else:
+                self.unlink_all(channel)
+
+        elif args["newchannel"]:
+            self.create_channel(name)
+
+    def run(self):
+        self.c = Config()
+
+        if not self.c.configfile_exists():
+            self.load_config_defaults()
+            self.c.write()
+            print(f"Created config file: {self.c._config_path}")
+
+        self.c.load()
+
+        try:
+            # create a default channel
+            if self.ensure_dir(os.path.join(self.c['general']['dotfiles_dir'], "common")):
+                print("Created dotfiles dir:", self.c['general']['dotfiles_dir'])
+                print("Created default channel: common")
+        except MicrodotException as e:
+            print(e)
+            return
+
+        # initialize dotfiles objects
+        self.init_obj()
+
+        self.parse_opt()
+
+
+if __name__ == "__main__":
+    app = App()
+    app.run()

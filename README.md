@@ -60,17 +60,27 @@ To use a dotfile, a symlink needs to be created in the appropriate location in t
 
 ```
 $ microdot link .bashrc -c laptop1
+
+Created link: /home/eco/.bashrc -> /home/eco/sync/dotfiles/laptop1/.bashrc
 ```
+
 To link all dotfiles within a channel
 ```
 # when channel is omitted, the default channel "common" is assumed.
 $ microdot link -c laptop1
 
+Created link: /home/eco/.bashrc -> /home/eco/sync/dotfiles/laptop1/.bashrc
+Created link: /home/eco/.config/i3 -> /home/eco/sync/dotfiles/laptop1/.config/i3
 ```
 
 To add a dotfile to channel laptop1
 ```
 $ microdot init ~/.xinitrc -c laptop1
+
+Move /home/eco/.xinitrc to dotfiles directory? [y/N] y
+Copied file: /home/eco/.xinitrc -> /home/eco/sync/dotfiles/laptop1/.xinitrc
+Removed file: /home/eco/.xinitrc
+Created link: /home/eco/.xinitrc -> /home/eco/sync/dotfiles/laptop1/.xinitrc
 ```
 
 ### Docopt

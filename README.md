@@ -1,5 +1,7 @@
 # Microdot
 
+TODO: update readme
+
 ### Introduction
 Microdot is a simple dotfiles manager.
 

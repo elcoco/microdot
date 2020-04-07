@@ -2,8 +2,79 @@
 
 ### Introduction
 
+Microdot is a simple dotfiles manager
+
+To be able to have multiple sets of dotfiles for different systems,
+dotfiles are organized in channels.
+Channels are just subdirectories inside the dotfiles directory.
+
+A directory layout with 3 channels (common, laptop1, laptop2) would
+look something like this
 
 ```
+~/sync/dotfiles/
+├── common
+│   ├── .config
+│   │   ├── mopidy
+│   │   └── zathura
+│   ├── .screenrc
+│   ├── .vim
+│   ├── .vimrc
+│   └── .Xresources
+├── laptop1
+│   ├── .bashrc
+│   └── .config
+│       └── i3
+└── laptop2
+    ├── .bashrc
+    └── .config
+        └── i3
+```
+To list available dotfiles in all channels:
+```
+$ microdot list
+
+Dotfiles dir: /home/eco/sync/dotfiles
+
+channel: laptop1
+[D] .config/i3
+
+channel: common
+[D] .vim
+[D] .config/mopidy
+[D] .config/zathura
+[F] .Xresources
+[F] .screenrc
+[F] .vimrc
+
+channel: laptop1
+[D] .config/i3
+[F] .bashrc
+
+channel: laptop2
+[D] .config/i3
+[F] .bashrc
+```
+
+To use a dotfile, a symlink needs to be created in the appropriate location in the filesystem.
+
+```
+$ microdot link .bashrc -c laptop1
+```
+To link all dotfiles within a channel
+```
+# when channel is omitted, the default channel "common" is assumed.
+$ microdot link -c laptop1
+
+```
+
+To add a dotfile to channel laptop1
+```
+$ microdot init ~/.xinitrc -c laptop1
+```
+
+### Docopt
+
 Microdot :: A management tool for dotfiles
 
 Usage:

@@ -1,13 +1,13 @@
 # Microdot
 
 ### Introduction
-
-Microdot is a simple dotfiles manager
+Microdot is a simple dotfiles manager.
 
 To be able to have multiple sets of dotfiles for different systems,
 dotfiles are organized in channels.  
 Channels are just subdirectories inside the dotfiles directory.
 
+### Usage
 A directory layout with 3 channels (common, laptop1, laptop2) would
 look something like this
 
@@ -81,7 +81,7 @@ Created link: /home/eco/.xinitrc -> /home/eco/sync/dotfiles/laptop1/.xinitrc
 ```
 
 ### Docopt
-
+```
 Microdot :: A management tool for dotfiles
 
 Usage:
@@ -124,4 +124,3 @@ Examples:
     Stop watching all dotfiles in channel workstation
     $ microdot unlink -c workstation
 ```
-

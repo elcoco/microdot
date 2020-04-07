@@ -3,11 +3,18 @@
 ### Introduction
 Microdot is a simple dotfiles manager.
 
-To be able to have multiple sets of dotfiles for different systems,
-dotfiles are organized in channels.  
-Channels are just subdirectories inside the dotfiles directory.
+What microdot does:
+- organize multiple sets of dotfiles for multiple systems into channels.
+- keep all dotfiles in one dir
+- provide tools to link and unlink the files
+
+What microdot doesn't:
+- syncing can be done with tools like nextcloud
+- for versioning, use git
 
 ### Usage
+Channels are just subdirectories inside the dotfiles directory.
+
 A directory layout with 3 channels (common, laptop1, laptop2) would
 look something like this
 

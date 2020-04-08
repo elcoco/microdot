@@ -1,7 +1,13 @@
-# Microdot
+# Microdot - a simple dotfiles manager
 TODO: update readme
 ## Introduction
-Microdot is a simple dotfiles manager.
+I got really annoyed by the fact that my dotfiles were difficult to maintain.  
+Just simply putting them in a git repository and creating symlinks in the appropriate  
+places works, but becomes a tedious job very quickly.  
+Also if you try to manage one repository for multiple systems that require different  
+versions of the same dotfile you'll need a more flexible solution.  
+
+Microdot tries to be just that.  
 
 **What microdot is:**
 - it can solve the problem of having multiple sets of dotfiles for multiple systems
@@ -9,11 +15,10 @@ Microdot is a simple dotfiles manager.
 - it provides tools to link and unlink dotfiles to $HOME
 
 **What microdot isn't:**
-- it doesn't do versioning, better use git for that
+- it doesn't do versioning, git is built for this, use git!
 - syncing can be done with tools like nextcloud
 
 ## Getting started
-
 If you run microdot for the first time, it will create:
 - a config file at: ``$XDG_CONFIG_HOME/.config/microdot/microdot.yaml``
 - a dotfiles directory at: ``$HOME/dotfiles``

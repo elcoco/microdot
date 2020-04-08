@@ -130,7 +130,7 @@ class Config(dict):
         if not os.path.exists(dirname):
             try:
                 os.makedirs(dirname)
-                print(f"Created dir: {dirname}")
+                print(f"Created directory: {dirname}")
             except BaseException as e:
                 raise ConfigCreateDirectoryError(f"Failed to create dir: {dirname}, message={e}")
 
@@ -185,6 +185,7 @@ class Helper():
         colors['white']    = '\033[0;37m'
         colors['bwhite']   = '\033[1;37m'
         colors['reset']    = '\033[0m'
+        colors['default']    = '\033[0m'
 
         return colors[color] + string + colors["reset"]
 
@@ -260,7 +261,7 @@ class Dotfile(Helper):
 
         self.rel_path = path
         self.link_path = os.path.join(userdir, self.rel_path)
-        self.target_path = os.path.join(self.c['general']['dotfiles_dir'], channel, self.rel_path)
+        self.target_path = os.path.join(self.c['core']['dotfiles_dir'], channel, self.rel_path)
         self.filename = os.path.basename(self.rel_path)
         self.channel = channel
 
@@ -336,7 +337,7 @@ class Dotfile(Helper):
 
     def do_move(self, channel):
         source_path = self.target_path
-        target_path = os.path.join(self.c["general"]["dotfiles_dir"], channel, self.rel_path)
+        target_path = os.path.join(self.c["core"]["dotfiles_dir"], channel, self.rel_path)
 
         if self.is_linked():
             self.do_unlink()
@@ -403,23 +404,23 @@ class App(Helper):
     def load_config_defaults(self):
         homedir = os.path.expanduser('~')
 
-        self.c['general'] = {}
-        self.c['general']['dotfiles_dir'] = os.path.join(homedir, 'sync/dotfiles')
-        self.c['general']['check_dirs'] = ['.config']
+        self.c['core'] = {}
+        self.c['core']['dotfiles_dir'] = os.path.join(homedir, 'sync/dotfiles')
+        self.c['core']['check_dirs'] = ['.config']
 
         self.c['colors'] = {}
         self.c['colors']["channel_name"] = 'magenta'
         self.c['colors']["dotfiles_dir"] = 'blue'
-        self.c['colors']["linked"]      = 'green'
-        self.c['colors']["unlinked"]    = 'reset'
+        self.c['colors']["linked"]       = 'green'
+        self.c['colors']["unlinked"]     = 'default'
 
     def get_channel_names(self):
-        return [ f.name for f in os.scandir(self.c['general']['dotfiles_dir']) if f.is_dir() ]
+        return [ f.name for f in os.scandir(self.c['core']['dotfiles_dir']) if f.is_dir() ]
 
     def get_dotfiles_obj(self):
         """ get list with Dotfile() objects """
 
-        dotfiles_dir = self.c['general']['dotfiles_dir']
+        dotfiles_dir = self.c['core']['dotfiles_dir']
 
         # list containing all dotfiles objects
         self.dotfiles = []
@@ -427,7 +428,7 @@ class App(Helper):
         for channel in self.get_channel_names():
 
             # absolute paths in sync dir
-            abs_check_dirs = [os.path.join(dotfiles_dir, channel, check_dir) for check_dir in self.c['general']['check_dirs']]
+            abs_check_dirs = [os.path.join(dotfiles_dir, channel, check_dir) for check_dir in self.c['core']['check_dirs']]
 
             # add root of sync dir to list
             abs_check_dirs.insert(0, os.path.join(dotfiles_dir, channel))
@@ -448,7 +449,7 @@ class App(Helper):
 
                 for d in dirs:
                     # do not add the root dirs
-                    if d in self.c['general']['check_dirs']:
+                    if d in self.c['core']['check_dirs']:
                         continue
 
                     dotfile = Dotfile(os.path.join(rel_root, d), self.c, channel)
@@ -471,7 +472,7 @@ class App(Helper):
         color_unlinked     = self.c["colors"]["unlinked"]
 
 
-        print(self.colorize('\nDotfiles dir:', color_dotfiles_dir), self.c['general']['dotfiles_dir'])
+        print(self.colorize('\nDotfiles dir:', color_dotfiles_dir), self.c['core']['dotfiles_dir'])
         print()
 
         for channel in self.get_channel_names():
@@ -487,7 +488,7 @@ class App(Helper):
             print()
 
     def create_channel(self, name):
-        return self.ensure_dir(os.path.join(self.c['general']['dotfiles_dir'], name))
+        return self.ensure_dir(os.path.join(self.c['core']['dotfiles_dir'], name))
 
     def link(self, rel_path, channel):
         df = self.get_dotfile_by_relpath(rel_path, channel)
@@ -636,8 +637,8 @@ class App(Helper):
 
         try:
             # create a default channel
-            if self.ensure_dir(os.path.join(self.c['general']['dotfiles_dir'], "common")):
-                print("Created dotfiles dir:", self.c['general']['dotfiles_dir'])
+            if self.ensure_dir(os.path.join(self.c['core']['dotfiles_dir'], "common")):
+                print("Created dotfiles directory:", self.c['core']['dotfiles_dir'])
                 print("Created default channel: common")
         except MicrodotException as e:
             print(e)

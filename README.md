@@ -1,76 +1,105 @@
 # Microdot
-
 TODO: update readme
-
-### Introduction
+## Introduction
 Microdot is a simple dotfiles manager.
 
-What microdot does:
-- organize multiple sets of dotfiles for multiple systems into channels
-- keep all dotfiles in one directory
-- provide tools to link and unlink the files
+**What microdot is:**
+- it can solve the problem of having multiple sets of dotfiles for multiple systems
+- it places all dotfiles in one directory
+- it provides tools to link and unlink dotfiles to $HOME
 
-What microdot doesn't:
+**What microdot isn't:**
+- it doesn't do versioning, better use git for that
 - syncing can be done with tools like nextcloud
-- for versioning, use git.
 
-### Usage
-Channels are just subdirectories inside the dotfiles directory.
+## Getting started
 
-A directory layout with 3 channels (common, laptop1, laptop2) would
-look something like this
+If you run microdot for the first time, it will create:
+- a config file at: ``$XDG_CONFIG_HOME/.config/microdot/microdot.yaml``
+- a dotfiles directory at: ``$HOME/dotfiles``
 
+Now you can start adding dotfiles to the dotfiles directory:
 ```
-~/sync/dotfiles/
-├── common
-│   ├── .config
-│   │   ├── mopidy
-│   │   └── zathura
-│   ├── .screenrc
-│   ├── .vim
-│   ├── .vimrc
-│   └── .Xresources
-├── laptop1
-│   ├── .bashrc
-│   └── .config
-│       └── i3
-└── laptop2
-    ├── .bashrc
-    └── .config
-        └── i3
+eco@laptop1> microdot init ~/.bashrc
+
+Move /home/eco/.basrhc to dotfiles directory? [y/N] y
+Copied file: /home/eco/.bashrc -> /home/eco/sync/dotfiles/.bashrc
+Removed file: /home/eco/.bashrc
+Created link: /home/eco/.bashrc -> /home/eco/sync/dotfiles/.bashrc
+
+eco@laptop1> microdot init ~/.config/i3
+
+Move /home/eco/.config/i3 to dotfiles directory? [y/N] y
+Copied dir: /home/eco/.config/i3 -> /home/eco/sync/dotfiles/common/.config/i3
+Removed dir: /home/eco/.config/i3
+Created link: /home/eco/.config/i3 -> /home/eco/sync/dotfiles/common/.config/i3
+
+etc ....
 ```
-To list available dotfiles in all channels:
+To view which files are inside the dotfiles dir:
 ```
-$ microdot list
+eco@laptop1>  microdot list
 
 Dotfiles dir: /home/eco/sync/dotfiles
 
 channel: common
 [D] .vim
+[D] .config/i3
 [D] .config/mopidy
 [D] .config/zathura
-[F] .Xresources
+[F] .screenrc
+[F] .vimrc
+```
+This is all nice but if we have multiple computers that require different versions of dotfiles we run into problems.  
+To keep different sets, called channels, we can provide a channel name with the ``-c <channel name>`` flag:
+```
+eco@laptop1> microdot init ~/.bashrc -c laptop1
+
+Channel doesn't exist, do you want to create it? [y/N] y
+Move /home/eco/.bashrc to dotfiles directory? [y/N] y
+Copied file: /home/eco/.bashrc -> /home/eco/sync/dotfiles/laptop1/.bashrc
+Removed file: /home/eco/.bashrc
+Created link: /home/eco/.bashrc -> /home/eco/sync/dotfiles/laptop1/.bashrc
+```
+if you run ``microdot list`` again you can see the channel is created and the file is moved:
+```
+eco@laptop1>  microdot list
+
+Dotfiles dir: /home/eco/sync/dotfiles
+
+channel: common
+[D] .vim
+[D] .config/i3
+[D] .config/mopidy
+[D] .config/zathura
 [F] .screenrc
 [F] .vimrc
 
 channel: laptop1
-[D] .config/i3
-[F] .bashrc
-
-channel: laptop2
-[D] .config/i3
 [F] .bashrc
 ```
-
-To use a dotfile from channel "laptop1", a symlink needs to be created in the appropriate location in the filesystem.
+Since channels are just subdirectories under the dotfiles directory, the directory layou would look something like this:
+```
+~/sync/dotfiles/
+├── common
+│   ├── .config
+│   │   ├── mopidy
+│   │   └── zathura
+│   ├── .screenrc
+│   ├── .vim
+│   └── .vimrc
+└── laptop1
+    └── .bashrc
 
 ```
-$ microdot link .bashrc -c laptop1
+To stop using ``.bashrc`` from channel ``laptop1``:
+```
+$ microdot unlink .bashrc -c laptop1
 
-Created link: /home/eco/.bashrc -> /home/eco/sync/dotfiles/laptop1/.bashrc
+Removed link: /home/eco/.bashrc
 ```
 
-To link all dotfiles within a channel
+To unlink all dotfiles within channel ``laptop1``
 ```
 # when channel is omitted, the default channel "common" is assumed.
 $ microdot link -c laptop1
@@ -79,17 +108,7 @@ Created link: /home/eco/.bashrc -> /home/eco/sync/dotfiles/laptop1/.bashrc
 Created link: /home/eco/.config/i3 -> /home/eco/sync/dotfiles/laptop1/.config/i3
 ```
 
-To add a dotfile to channel laptop1
-```
-$ microdot init ~/.xinitrc -c laptop1
-
-Move /home/eco/.xinitrc to dotfiles directory? [y/N] y
-Copied file: /home/eco/.xinitrc -> /home/eco/sync/dotfiles/laptop1/.xinitrc
-Removed file: /home/eco/.xinitrc
-Created link: /home/eco/.xinitrc -> /home/eco/sync/dotfiles/laptop1/.xinitrc
-```
-
-### Docopt
+## Docopt
 ```
 Microdot :: A management tool for dotfiles
 

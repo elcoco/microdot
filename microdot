@@ -8,6 +8,7 @@ Usage:
     microdot [options] init <name>
     microdot [options] link [<name>]
     microdot [options] unlink [<name>]
+    microdot [options] move <source> <destination>
     microdot [options] newchannel <name>
 
 Options:
@@ -60,6 +61,13 @@ logger = logging.getLogger(__name__)
 
 class MicrodotException(Exception):
     pass
+
+class InitError(MicrodotException): pass
+class CopyError(MicrodotException): pass
+class LinkError(MicrodotException): pass
+class UnlinkError(MicrodotException): pass
+class MoveError(MicrodotException): pass
+
 
 
 class Config(dict):
@@ -251,24 +259,19 @@ class Dotfile(Helper):
 
     def do_init(self):
         if self.is_linked():
-            print("Failed to init, dotfile is already linked")
-            return
+            raise InitError("Failed to init, dotfile is already linked")
 
         if not self.link_is_dir() and not self.link_is_file():
-            print(f"Failed to init, file or directory doesn't exist: {self.link_path}")
-            return
+            raise InitError(f"Failed to init, file or directory doesn't exist: {self.link_path}")
 
         if self.link_is_link():
-            print(f"Failed to init, link exists at: {self.link_path}")
-            return
+            raise InitError(f"Failed to init, link exists at: {self.link_path}")
 
         if self.target_is_dir():
-            print(f"Failed to init, target directory already exists: {self.target_path}")
-            return
+            raise InitError(f"Failed to init, target directory already exists: {self.target_path}")
 
         if self.target_is_file():
-            print(f"Failed to init, target file already exists: {self.target_path}")
-            return
+            raise InitError(f"Failed to init, target file already exists: {self.target_path}")
 
         if not self.confirm(f"Move {self.link_path} to dotfiles directory?"):
             return
@@ -278,60 +281,83 @@ class Dotfile(Helper):
             try:
                 self.copy_dir(self.link_path, self.target_path)
             except MicrodotException as e:
-                print(e)
-                return
+                raise InitError(e)
 
         elif self.link_is_file():
             try:
                 self.copy_file(self.link_path, self.target_path)
             except MicrodotException as e:
-                print(e)
-                return
+                raise InitError(e)
         else:
-            print("Something went wrong")
-            return
+            raise InitError("Something went wrong")
 
         # remove the file or directory
         try:
             self.remove_path(self.link_path)
         except MicrodotException as e:
-            print(e)
-            return
+            raise InitError(e)
 
         # create link
         self.do_link()
 
     def do_unlink(self):
         if not self.is_linked():
-            print("Failed to unlink, dotfile is not linked")
-            return
+            raise UnlinkError("Failed to unlink, dotfile is not linked")
 
         try:
             self.remove_path(self.link_path)
         except MicrodotException as e:
-            print("Failed to unlink, couldn't remove link")
+            raise UnlinkError("Failed to unlink, couldn't remove link")
 
     def do_link(self):
         if self.is_linked():
-            print("Failed to link, dotfile is already linked")
-            return
+            raise LinkError("Failed to link, dotfile is already linked")
 
         if self.link_is_link():
-            print(f"Failed to link, link already exists:\n{self.link_path} -> {os.path.realpath(self.link_path)}")
-            return
+            raise LinkError(f"Failed to link, link already exists:\n{self.link_path} -> {os.path.realpath(self.link_path)}")
 
         if self.link_is_dir():
-            print(f"Failed to link, directory already exists: {self.link_path}")
-            return
+            raise LinkError(f"Failed to link, directory already exists: {self.link_path}")
 
         if self.link_is_file():
-            print(f"Failed to link, file already exists: {self.link_path}")
-            return
+            raise LinkError(f"Failed to link, file already exists: {self.link_path}")
 
         try:
             self.create_link(self.link_path, self.target_path)
         except MicrodotException as e:
-            print("Failed to link, couldn't create link")
+            raise LinkError("Failed to link, couldn't create link")
+
+    def do_move(self, channel):
+        dotfiles_dir = self.c["general"]["dotfiles_dir"]
+
+        source_path = self.target_path
+        target_path = os.path.join(dotfiles_dir, channel, self.rel_path)
+
+        if self.is_linked():
+            self.do_unlink()
+
+        # copy file or dir to dotfiles dir
+        if self.target_is_dir():
+            try:
+                self.copy_dir(source_path, target_path)
+            except MicrodotException as e:
+                raise MoveError(e)
+
+        elif self.target_is_file():
+            try:
+                self.copy_file(source_path, target_path)
+            except MicrodotException as e:
+                raise MoveError(e)
+        else:
+            raise MoveError("Something went wrong")
+
+        # remove the file or directory
+        try:
+            self.remove_path(source_path)
+        except MicrodotException as e:
+            raise MoveError(e)
+
+
 
     def is_linked(self):
         return os.path.realpath(self.link_path) == self.target_path
@@ -449,38 +475,83 @@ class App(Helper):
 
     def link(self, rel_path, channel):
         df = self.get_dotfile_by_relpath(rel_path, channel)
-        if df:
-            return df.do_link()
 
-        print(f"Failed to link, dotfile not found in channel {channel}")
+        try:
+            return df.do_link()
+        except LinkError as e:
+            print(e)
+        except AttributeError:
+            print(f"Failed to link, dotfile not found in channel {channel}")
 
     def link_all(self, channel):
         if not self.confirm(f"Link all dotfiles in channel {channel}?"):
             return
 
         for df in [x for x in self.dotfiles if x.channel == channel]:
-            df.do_link()
+            try:
+                df.do_link()
+            except LinkError as e:
+                print(e)
+            except AttributeError:
+                print(f"Failed to unlink, dotfile not found in channel {channel}")
 
     def init(self, rel_path, channel):
         # handle paths with '~' or '../filename'
         abs_path = os.path.abspath(rel_path)
         rel_path = abs_path.replace(os.path.expanduser('~') + '/', "")
         df = Dotfile(rel_path, self.c, channel)
-        return df.do_init()
+        try:
+            return df.do_init()
+        except InitError as e:
+            print(e)
 
     def unlink(self, rel_path, channel):
         df = self.get_dotfile_by_relpath(rel_path, channel)
-        if df:
-            return df.do_unlink()
 
-        print(f"Failed to unlink, dotfile not found in channel {channel}")
+        try:
+            return df.do_unlink()
+        except UnlinkError as e:
+            print(e)
+        except AttributeError:
+            print(f"Failed to unlink, dotfile not found in channel {channel}")
 
     def unlink_all(self, channel):
         if not self.confirm(f"Unlink all dotfiles in channel {channel}?"):
             return
 
         for df in [x for x in self.dotfiles if x.channel == channel]:
-            df.do_unlink()
+            try:
+                df.do_unlink()
+            except UnlinkError as e:
+                print(e)
+
+    def move(self, src, channel_dest):
+        try:
+            channel_src, dotfile = src.split('/', 1)
+        except ValueError:
+            print("Failed to move due to syntax error")
+            print("SYNTAX: microdot move source_channel/source_dotfile destination_channel")
+            return
+
+        if channel_dest not in self.get_channel_names():
+            if not self.confirm("Channel doesn't exist, would you like to create it?"):
+                return
+            self.create_channel(channel_dest)
+
+        df_src = self.get_dotfile_by_relpath(dotfile, channel_src)
+
+        if self.get_dotfile_by_relpath(dotfile, channel_dest):
+            print(f'Dotfile "{dotfile}" already exists in channel "{channel_dest}"')
+            return
+
+        try:
+            df_src.do_move(channel_dest)
+        except MoveError as e:
+            print(e)
+        except UnlinkError as e:
+            print(e)
+        except AttributeError:
+            print(f"Failed to move, dotfile not found in channel {channel_src}")
 
     def parse_opt(self):
         # when no args are given or syntax eror, display full usage info
@@ -492,9 +563,11 @@ class App(Helper):
 
         channel = args["--channel"]
         name = args["<name>"]
+        src = args["<source>"]
+        dest = args["<destination>"]
 
         if channel not in self.get_channel_names():
-            if not self.confirm("Channel doesn't exist, do you want to create it?"):
+            if not self.confirm("Channel doesn't exist, would you like to create it?"):
                 return
             self.create_channel(channel)
 
@@ -518,6 +591,9 @@ class App(Helper):
 
         elif args["newchannel"]:
             self.create_channel(name)
+
+        elif args["move"]:
+            self.move(src, dest)
 
     def run(self):
         self.c = Config()

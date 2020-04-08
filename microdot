@@ -9,11 +9,14 @@ Usage:
     microdot [options] link [<name>]
     microdot [options] unlink [<name>]
     microdot [options] move <source> <destination>
+    microdot [options] remove <name>
     microdot [options] newchannel <name>
 
 Options:
     -c, --channel <channel>      specify channel [default: common]
     -h, --help                   help
+
+    --logging (debug|info|warning|error)  Set loglevel [default: debug]
 
 Introduction:
     To solve the problem of having different collections of dotfiles
@@ -41,8 +44,11 @@ Examples:
     dotfiles directory
     $ microdot unlink .config/ranger -c workstation
 
-    Stop watching all dotfiles in channel workstation
+    Unlink all dotfiles in channel workstation
     $ microdot unlink -c workstation
+
+    Remove dotfile from channel
+    $ microdot remove .bashrc
 """
 
 import os, sys
@@ -67,6 +73,7 @@ class CopyError(MicrodotException): pass
 class LinkError(MicrodotException): pass
 class UnlinkError(MicrodotException): pass
 class MoveError(MicrodotException): pass
+class RemoveError(MicrodotException): pass
 
 
 
@@ -99,7 +106,7 @@ class Config(dict):
         try:
             self._config[key] = value
         except KeyError as e:
-            logger.error(f"Failed to set key, Key doesn't exist, key={key}")
+            print(f"Failed to set key, Key doesn't exist, key={key}")
 
     def set_path(self, path):
         self._config_path = path
@@ -123,7 +130,7 @@ class Config(dict):
         if not os.path.exists(dirname):
             try:
                 os.makedirs(dirname)
-                logger.debug(f"Created dir: {dirname}")
+                print(f"Created dir: {dirname}")
             except BaseException as e:
                 raise ConfigCreateDirectoryError(f"Failed to create dir: {dirname}, message={e}")
 
@@ -153,7 +160,7 @@ class Config(dict):
         with open(path, 'w') as outfile:
             try:
                 yaml.dump(self._config, outfile, default_flow_style=False)
-                logger.debug(f"Wrote config to: {path}")
+                print(f"Wrote config to: {path}")
             except yaml.YAMLError as e:
                 raise ConfigParseError(f"Failed to write YAML in config file: {path}, message={e}")
 
@@ -328,15 +335,13 @@ class Dotfile(Helper):
             raise LinkError("Failed to link, couldn't create link")
 
     def do_move(self, channel):
-        dotfiles_dir = self.c["general"]["dotfiles_dir"]
-
         source_path = self.target_path
-        target_path = os.path.join(dotfiles_dir, channel, self.rel_path)
+        target_path = os.path.join(self.c["general"]["dotfiles_dir"], channel, self.rel_path)
 
         if self.is_linked():
             self.do_unlink()
 
-        # copy file or dir to dotfiles dir
+        # copy file or dir (target in this case is the source path)
         if self.target_is_dir():
             try:
                 self.copy_dir(source_path, target_path)
@@ -357,7 +362,15 @@ class Dotfile(Helper):
         except MicrodotException as e:
             raise MoveError(e)
 
+    def do_remove(self):
+        if self.is_linked():
+            self.do_unlink()
 
+        # remove the file or directory
+        try:
+            self.remove_path(self.target_path)
+        except MicrodotException as e:
+            raise MoveError(e)
 
     def is_linked(self):
         return os.path.realpath(self.link_path) == self.target_path
@@ -403,7 +416,9 @@ class App(Helper):
     def get_channel_names(self):
         return [ f.name for f in os.scandir(self.c['general']['dotfiles_dir']) if f.is_dir() ]
 
-    def init_obj(self):
+    def get_dotfiles_obj(self):
+        """ get list with Dotfile() objects """
+
         dotfiles_dir = self.c['general']['dotfiles_dir']
 
         # list containing all dotfiles objects
@@ -452,8 +467,9 @@ class App(Helper):
         """ list those damn dotfiles """
         color_dotfiles_dir = self.c["colors"]["dotfiles_dir"]
         color_channel_name = self.c["colors"]["channel_name"]
-        color_linked      = self.c["colors"]["linked"]
-        color_unlinked    = self.c["colors"]["unlinked"]
+        color_linked       = self.c["colors"]["linked"]
+        color_unlinked     = self.c["colors"]["unlinked"]
+
 
         print(self.colorize('\nDotfiles dir:', color_dotfiles_dir), self.c['general']['dotfiles_dir'])
         print()
@@ -553,6 +569,16 @@ class App(Helper):
         except AttributeError:
             print(f"Failed to move, dotfile not found in channel {channel_src}")
 
+    def remove(self, rel_path, channel):
+        df = self.get_dotfile_by_relpath(rel_path, channel)
+
+        try:
+            return df.do_remove()
+        except RemoveError as e:
+            print(e)
+        except AttributeError:
+            print(f"Failed to remove, dotfile not found in channel {channel}")
+
     def parse_opt(self):
         # when no args are given or syntax eror, display full usage info
         try:
@@ -562,6 +588,7 @@ class App(Helper):
             return
 
         channel = args["--channel"]
+        log_level = args["--logging"]
         name = args["<name>"]
         src = args["<source>"]
         dest = args["<destination>"]
@@ -595,13 +622,15 @@ class App(Helper):
         elif args["move"]:
             self.move(src, dest)
 
+        elif args["remove"]:
+            self.remove(name, channel)
+
     def run(self):
         self.c = Config()
 
         if not self.c.configfile_exists():
             self.load_config_defaults()
             self.c.write()
-            print(f"Created config file: {self.c._config_path}")
 
         self.c.load()
 
@@ -615,7 +644,7 @@ class App(Helper):
             return
 
         # initialize dotfiles objects
-        self.init_obj()
+        self.get_dotfiles_obj()
 
         self.parse_opt()
 

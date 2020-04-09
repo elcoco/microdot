@@ -1,9 +1,9 @@
 # Microdot - a simple dotfiles manager
 TODO: update readme
 ## Introduction
-I got really annoyed by the fact that my dotfiles were difficult to maintain.  
+Managing dotfiles is an annoying task.
 Just simply putting them in a git repository and creating symlinks in the appropriate places works, but becomes a tedious job very quickly.  
-Also if you try to manage one repository for multiple systems that require different versions of the same dotfile you'll need a more flexible solution.  
+Also if you try to manage one repository for multiple systems that require different versions of the same dotfile, you'll need a more flexible solution.  
 
 Microdot tries to be just that.  
 

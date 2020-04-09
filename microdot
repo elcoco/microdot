@@ -107,7 +107,7 @@ class CustomFormatter(logging.Formatter):
 
     FORMATS = {
         logging.DEBUG: colors['default'] + format + colors['reset'],
-        logging.INFO: colors['white'] + format + colors['reset'],
+        logging.INFO: colors['default'] + format + colors['reset'],
         logging.WARNING: colors['red'] + format + colors['reset'],
         logging.ERROR: colors['bred'] + format + colors['reset'],
         logging.CRITICAL: colors['bred'] + format + colors['reset']

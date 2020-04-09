@@ -16,7 +16,7 @@ Options:
     -c, --channel <channel>      specify channel [default: common]
     -h, --help                   help
 
-    --logging (debug|info|error)  Set loglevel [default: debug]
+    --debug                      show debugging info
 
 Introduction:
     To solve the problem of having different collections of dotfiles
@@ -637,7 +637,6 @@ class App(Helper):
             return
 
         channel = args["--channel"]
-        log_level = args["--logging"]
         name = args["<name>"]
         src = args["<source>"]
         dest = args["<destination>"]
@@ -681,18 +680,15 @@ class App(Helper):
             print(__doc__)
             return
 
-        log_level = args["--logging"]
-
-        if log_level == 'debug':
-            level = logging.DEBUG
-        elif log_level == 'info':
-            level = logging.INFO
-        elif log_level == 'error':
-            level = logging.ERROR
-
         # create console handler with a higher log level
         ch = logging.StreamHandler()
-        ch.setLevel(level)
+
+        
+        if args["--debug"]:
+            ch.setLevel(logging.DEBUG)
+        else:
+            ch.setLevel(logging.INFO)
+
         ch.setFormatter(CustomFormatter())
         logger.addHandler(ch)
         return True

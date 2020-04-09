@@ -697,7 +697,6 @@ class App(Helper):
         logger.addHandler(ch)
         return True
 
-
     def run(self):
         if not self.set_logging():
             return

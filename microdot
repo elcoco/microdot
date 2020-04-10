@@ -33,15 +33,13 @@ Examples:
     Move a dotfile to the dotfiles directory and create a symlink
     $ microdot init ~/.config/ranger -c workstation
 
-    Symlink a dotfile in the dotfiles directory to a path relative to $HOME
+    Symlink a dotfile
     $ microdot link .bashrc
 
-    Symlink all dotfiles within the channel "workstation" to a path relative
-    to $HOME
+    Symlink all dotfiles within channel "workstation"
     $ microdot link -c workstation
 
-    Unlink a dotfile. This will remove the symlink but keep the data in the
-    dotfiles directory
+    Unlink a dotfile. This will remove the symlink, but keep the data
     $ microdot unlink .config/ranger -c workstation
 
     Unlink all dotfiles in channel workstation
@@ -49,6 +47,9 @@ Examples:
 
     Remove dotfile from channel
     $ microdot remove .bashrc
+
+    Move dotfile from channel common to workstation
+    $ microdot move common/.bashrc workstation
 """
 
 import os, sys

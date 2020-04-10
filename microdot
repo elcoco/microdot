@@ -696,7 +696,8 @@ class App(Helper):
         if not self.set_logging():
             return
 
-        self.c = Config()
+        config_path = os.path.expanduser('~') + '/.config/microdot/microdot.yaml'
+        self.c = Config(config_path)
 
         if not self.c.configfile_exists():
             self.load_config_defaults()

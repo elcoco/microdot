@@ -442,7 +442,7 @@ class App(Helper):
         homedir = os.path.expanduser('~')
 
         self.c['core'] = {}
-        self.c['core']['dotfiles_dir'] = os.path.join(homedir, 'sync/dotfiles')
+        self.c['core']['dotfiles_dir'] = os.path.join(homedir, 'sync/Dotfiles')
         self.c['core']['check_dirs'] = ['.config']
 
         self.c['colors'] = {}

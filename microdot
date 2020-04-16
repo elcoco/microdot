@@ -4,13 +4,12 @@
 Microdot :: A management tool for dotfiles
 
 Usage:
-    microdot [options] list
+    microdot [options] (ls | list)
+    microdot [options] (ln | link) [<name>]
+    microdot [options] (ul | unlink) [<name>]
+    microdot [options] (mv | move) <source> <destination>
+    microdot [options] (rm | remove) <name>
     microdot [options] init <name>
-    microdot [options] link [<name>]
-    microdot [options] unlink [<name>]
-    microdot [options] move <source> <destination>
-    microdot [options] remove <name>
-    microdot [options] newchannel <name>
 
 Options:
     -c, --channel <channel>      specify channel [default: common]
@@ -22,6 +21,8 @@ Introduction:
     To solve the problem of having different collections of dotfiles
     for different machines, the dotfiles are organized into channels.
     If no channel is specified, the default channel "common" is assumed.
+    If a non existing channel is specified, the user will be prompted
+    to create it.
 
     At first start a config file is written to:
         $XDG_CONFIG_HOME/microdot/microdot.yaml
@@ -647,10 +648,10 @@ class App(Helper):
                 return
             self.create_channel(channel)
 
-        if args["list"]:
+        if args["list"] or args["ls"]:
             self.list()
 
-        elif args["link"]:
+        elif args["link"] or args["ln"]:
             if name:
                 self.link(name, channel)
             else:
@@ -659,19 +660,16 @@ class App(Helper):
         elif args["init"]:
             self.init(name, channel)
 
-        elif args["unlink"]:
+        elif args["unlink"] or args["ul"] :
             if name:
                 self.unlink(name, channel)
             else:
                 self.unlink_all(channel)
 
-        elif args["newchannel"]:
-            self.create_channel(name)
-
-        elif args["move"]:
+        elif args["move"] or args["mv"]:
             self.move(src, dest)
 
-        elif args["remove"]:
+        elif args["remove"] or args["rm"]:
             self.remove(name, channel)
 
     def set_logging(self):

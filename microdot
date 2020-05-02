@@ -240,7 +240,6 @@ class Config(dict):
                 f.writelines(lines)
 
 
-
 class Helper():
     def colorize(self, string, color):
         colors = {}

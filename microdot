@@ -162,6 +162,16 @@ class Config(dict):
         # override dict keys method
         return self._config.keys()
 
+    def dict_deep_merge(self, d1, d2):
+        """ deep merge two dicts """
+        dm = d1.copy()
+        for k,v in d2.items():
+            if k in dm.keys() and type(v) == dict:
+                dm[k] = self.dict_deep_merge(dm[k], d2[k])
+            else:
+                dm[k] = v
+        return dm
+
     def test_file(self, path):
         """ Test if file exists """
         try:
@@ -181,13 +191,22 @@ class Config(dict):
     def configfile_exists(self):
         return self.test_file(self._config_path)
 
-    def load(self, path=False):
+    def load(self, path=False, merge=True):
         if not path:
             path = self._config_path
 
             try:
                 with open(path, 'r') as configfile:
-                    self._config = yaml.safe_load(configfile)
+                    cfg = yaml.safe_load(configfile)
+
+                    if not cfg:
+                        return
+
+                    if merge:
+                        self._config = self.dict_deep_merge(self._config, cfg)
+                    else:
+                        self._config = yaml.safe_load(configfile, cfg)
+
                     logger.debug(f"Loaded config file, path={path}")
                 return True
             except yaml.YAMLError as e:
@@ -195,7 +214,7 @@ class Config(dict):
             except FileNotFoundError as e:
                 raise ConfigFileNotFoundError(f"Config file doesn't exist: {path}\n{e}")
 
-    def write(self, path=False):
+    def write(self, path=False, commented=False):
         if not path:
             path = self._config_path
 
@@ -207,6 +226,19 @@ class Config(dict):
                 logger.info(f"Wrote config to: {path}")
             except yaml.YAMLError as e:
                 raise ConfigParseError(f"Failed to write YAML in config file: {path}, message={e}")
+
+        # comment the config file that was just written by libYAML
+        if commented:
+            lines = []
+
+            with open(self._config_path, 'r') as f:
+                lines = f.readlines()
+
+            lines = [f"#{x}" for x in lines]
+
+            with open(self._config_path, 'w') as f:
+                f.writelines(lines)
+
 
 
 class Helper():
@@ -443,7 +475,7 @@ class App(Helper):
         homedir = os.path.expanduser('~')
 
         self.c['core'] = {}
-        self.c['core']['dotfiles_dir'] = os.path.join(homedir, 'sync/Dotfiles')
+        self.c['core']['dotfiles_dir'] = os.path.join(homedir, 'sync/dotfiles')
         self.c['core']['check_dirs'] = ['.config']
 
         self.c['colors'] = {}
@@ -698,9 +730,10 @@ class App(Helper):
         config_path = os.path.expanduser('~') + '/.config/microdot/microdot.yaml'
         self.c = Config(config_path)
 
+        self.load_config_defaults()
+
         if not self.c.configfile_exists():
-            self.load_config_defaults()
-            self.c.write()
+            self.c.write(commented=True)
 
         self.c.load()
 

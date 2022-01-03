@@ -197,10 +197,6 @@ class Utils():
 
         return colors[color] + string + colors["reset"]
 
-    def confirm(self, msg):
-        if input(msg + ' [y/N] ').lower() == 'y':
-            return True
-
     def search_channel(self, item, search_dirs):
         # recursive find of files and dirs in channel when file/dir is in search_dirs
         items = [f for f in item.iterdir() if f.is_file()]
@@ -231,6 +227,12 @@ class App(Utils):
         config['colors']["dotfiles_dir"] = 'blue'
         config['colors']["linked"]       = 'green'
         config['colors']["unlinked"]     = 'default'
+
+    def confirm(self, msg):
+        if not self.assume_yes:
+            return True
+        if input(msg + ' [y/N] ').lower() == 'y':
+            return True
 
     def list(self):
         """ list those damn dotfiles """
@@ -338,11 +340,13 @@ class App(Utils):
         parser.add_argument('-u', '--unlink',       help='unlink dotfile', action='store_true')
         parser.add_argument('-i', '--init',         help='init dotfile', action='store_true')
         parser.add_argument('-d', '--dotfiles-dir', help='dotfiles directory', metavar='DIR', default=None)
+        parser.add_argument('-y', '--assume-yes',   help='answer yes to questions', action='store_false')
 
         parser.add_argument('name', nargs='?', metavar='PATH', default=None)
 
         args = parser.parse_args()
         name = args.name
+        self.assume_yes = args.assume_yes
 
         do_link = args.link
         do_unlink = args.unlink

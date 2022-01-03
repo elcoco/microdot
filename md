@@ -223,7 +223,7 @@ class Utils():
 class App(Utils):
     def load_config_defaults(self, config):
         config['core'] = {}
-        config['core']['dotfiles_dir'] = Path.home() / 'sync/dotfiles'
+        config['core']['dotfiles_dir'] = Path.home() / 'dev/dotfiles'
         config['core']['check_dirs'] = ['.config']
 
         config['colors'] = {}
@@ -333,12 +333,13 @@ class App(Utils):
     def parse_args(self):
         parser = argparse.ArgumentParser(description='Static site generator.')
 
-        parser.add_argument('-c', '--channel',    help='channel', metavar='NAME', default=None)
-        parser.add_argument('-l', '--link',       help='link dotfile', action='store_true')
-        parser.add_argument('-u', '--unlink',     help='unlink dotfile', action='store_true')
-        parser.add_argument('-i', '--init',       help='init dotfile', action='store_true')
+        parser.add_argument('-c', '--channel',      help='channel', metavar='CHANNEL', default=None)
+        parser.add_argument('-l', '--link',         help='link dotfile', action='store_true')
+        parser.add_argument('-u', '--unlink',       help='unlink dotfile', action='store_true')
+        parser.add_argument('-i', '--init',         help='init dotfile', action='store_true')
+        parser.add_argument('-d', '--dotfiles-dir', help='dotfiles directory', metavar='DIR', default=None)
 
-        parser.add_argument('name', nargs='?', metavar='NAME', default=None)
+        parser.add_argument('name', nargs='?', metavar='PATH', default=None)
 
         args = parser.parse_args()
         name = args.name
@@ -346,6 +347,9 @@ class App(Utils):
         do_link = args.link
         do_unlink = args.unlink
         do_init = args.init
+
+        if args.dotfiles_dir:
+            self.c['core']['dotfiles_dir'] = args.dotfiles_dir
 
         if not args.channel:
             channel = Path(self.c['core']['dotfiles_dir']) / "common"

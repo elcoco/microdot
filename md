@@ -272,6 +272,8 @@ class App(Utils):
             logger.info(f"Link path exists, using --force to overwrite: {lnk}")
             if lnk.is_file():
                 os.remove(lnk)
+            elif lnk.is_symlink():
+                lnk.unlink()
             elif lnk.is_dir():
                 shutil.rmtree(lnk)
             else:

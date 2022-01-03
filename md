@@ -4,6 +4,7 @@ import os, sys
 import logging
 import argparse
 from pathlib import Path
+import shutil
 
 try:
     import yaml
@@ -229,7 +230,7 @@ class App(Utils):
         config['colors']["unlinked"]     = 'default'
 
     def confirm(self, msg):
-        if not self.assume_yes:
+        if self.assume_yes:
             return True
         if input(msg + ' [y/N] ').lower() == 'y':
             return True
@@ -266,6 +267,16 @@ class App(Utils):
         if not src.exists():
             logger.error(f"Source doesn't exist: {src}")
             return
+
+        if lnk.exists() and self.use_force:
+            logger.info(f"Link path exists, using --force to overwrite: {lnk}")
+            if lnk.is_file():
+                os.remove(lnk)
+            elif lnk.is_dir():
+                shutil.rmtree(lnk)
+            else:
+                logger.error(f"Failed to remove path: {lnk}")
+                return
 
         if lnk.is_symlink():
             logger.error(f"File already linked: {lnk}")
@@ -340,13 +351,16 @@ class App(Utils):
         parser.add_argument('-u', '--unlink',       help='unlink dotfile', action='store_true')
         parser.add_argument('-i', '--init',         help='init dotfile', action='store_true')
         parser.add_argument('-d', '--dotfiles-dir', help='dotfiles directory', metavar='DIR', default=None)
-        parser.add_argument('-y', '--assume-yes',   help='answer yes to questions', action='store_false')
+        parser.add_argument('-y', '--assume-yes',   help='answer yes to questions', action='store_true')
+        parser.add_argument('-f', '--force',        help='overwrite file if exists', action='store_true')
 
         parser.add_argument('name', nargs='?', metavar='PATH', default=None)
 
         args = parser.parse_args()
         name = args.name
+
         self.assume_yes = args.assume_yes
+        self.use_force = args.force
 
         do_link = args.link
         do_unlink = args.unlink

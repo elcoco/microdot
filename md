@@ -42,7 +42,6 @@ class CustomFormatter(logging.Formatter):
     colors['default']    = '\033[0m'
 
     format = "%(message)s"
-    #format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s (%(filename)s:%(lineno)d)"
 
     FORMATS = {
         logging.DEBUG: colors['default'] + format + colors['reset'],

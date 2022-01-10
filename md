@@ -351,9 +351,11 @@ class App(Utils):
         parser = argparse.ArgumentParser(description='Static site generator.')
 
         parser.add_argument('-c', '--channel',      help='channel', metavar='CHANNEL', default=None)
-        parser.add_argument('-l', '--link',         help='link dotfile', action='store_true')
-        parser.add_argument('-u', '--unlink',       help='unlink dotfile', action='store_true')
-        parser.add_argument('-i', '--init',         help='init dotfile', action='store_true')
+        parser.add_argument('-l', '--link',         help='link dotfile', metavar='DOT', default=None)
+        parser.add_argument('-L', '--link-all',     help='link all dotfiles in channel', action='store_true')
+        parser.add_argument('-u', '--unlink',       help='unlink dotfile', metavar='DOT', default=None)
+        parser.add_argument('-U', '--unlink-all',   help='unlink all dotfiles in channel', action='store_true')
+        parser.add_argument('-i', '--init',         help='init dotfile', metavar='PATH', default=None)
         parser.add_argument('-d', '--dotfiles-dir', help='dotfiles directory', metavar='DIR', default=None)
         parser.add_argument('-y', '--assume-yes',   help='answer yes to questions', action='store_true')
         parser.add_argument('-f', '--force',        help='overwrite file if exists', action='store_true')
@@ -361,14 +363,9 @@ class App(Utils):
         parser.add_argument('name', nargs='?', metavar='PATH', default=None)
 
         args = parser.parse_args()
-        name = args.name
 
         self.assume_yes = args.assume_yes
         self.use_force = args.force
-
-        do_link = args.link
-        do_unlink = args.unlink
-        do_init = args.init
 
         if args.dotfiles_dir:
             self.c['core']['dotfiles_dir'] = args.dotfiles_dir
@@ -383,20 +380,21 @@ class App(Utils):
                 return
             channel.mkdir()
 
-        if do_link:
-            if name:
-                self.link(name, channel)
-            else:
-                self.link_all(channel)
 
-        elif do_init:
-            self.init(name, channel)
+        if args.link_all:
+            self.link_all(channel)
 
-        elif do_unlink:
-            if name:
-                self.unlink(name, channel)
-            else:
-                self.unlink_all(channel)
+        elif args.unlink_all:
+            self.unlink_all(channel)
+
+        elif args.link:
+            self.link(args.link, channel)
+
+        elif args.unlink:
+            self.unlink(args.unlink, channel)
+
+        elif args.init:
+            self.init(args.init, channel)
         else:
             self.list()
 

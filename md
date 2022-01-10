@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+# TODO don't show git dir as channel
+
 import os, sys
 import logging
 import argparse

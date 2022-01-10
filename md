@@ -301,9 +301,9 @@ class App(Utils):
             self.link(src.relative_to(channel), channel)
 
     def init(self, name, channel):
-        src = Path(self.c['core']['dotfiles_dir']) / channel / name
-        lnk = Path(Path.home()) / name
-        path = Path(Path.home()) / name
+        lnk = Path(name)
+        path = Path(name)
+        src = Path(self.c['core']['dotfiles_dir']) / channel / str(path.absolute()).lstrip(str(Path.home().absolute()))
 
         if not (path.is_file() or path.is_dir()):
             logger.error(f"Path is not a file or directory: {path}")

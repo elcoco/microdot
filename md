@@ -200,26 +200,147 @@ class Utils():
 
         return colors[color] + string + colors["reset"]
 
-    def search_channel(self, item, search_dirs):
+    def confirm(self, msg, assume_yes=False):
+        if assume_yes:
+            return True
+        if input(msg + ' [y/N] ').lower() == 'y':
+            return True
+
+
+class Dotfile():
+    def __init__(self, path, channel):
+        self._channel = channel
+        self.path = path
+        self.name = str(path.absolute()).lstrip(str(channel.absolute()))
+        self.link_path = Path(Path.home()) / self.name
+
+    def check_symlink(self):
+        # check if link links to src
+        if not self.link_path.is_symlink():
+            return
+        return self.link_path.resolve() == self.path
+
+    def is_dir(self):
+        return self.path.is_dir()
+
+    def is_file(self):
+        return self.path.is_file()
+
+    def link(self, force=False):
+        link = self.link_path
+
+        if link.exists() and force:
+            logger.info(f"Link path exists, using --force to overwrite: {link}")
+            if link.is_file():
+                os.remove(link)
+            elif link.is_symlink():
+                link.unlink()
+            elif link.is_dir():
+                shutil.rmtree(link)
+            else:
+                logger.error(f"Failed to remove path: {link}")
+                return
+
+        if link.is_symlink():
+            logger.error(f"Dotfile already linked: {link}")
+            return
+
+        if link.exists():
+            logger.error(f"Link exists: {link}")
+            return
+
+        link.symlink_to(self.path)
+        logger.info(f"Linked: {link} -> {self.path}")
+    
+    def unlink(self):
+        if not self.check_symlink():
+            logger.error(f"Dotfile is not linked: {self.name}")
+            return
+
+        self.link_path.unlink()
+        print(f"Unlinked: {self.link_path}")
+
+
+class Channel(Utils):
+    def __init__(self, path, config):
+        self._path = path
+        self.name = path.name
+        self._dotfiles = self.search_dotfiles(self._path, config['core']['check_dirs'])
+
+        self._color_channel_name = config["colors"]["channel_name"]
+        self._color_linked       = config["colors"]["linked"]
+        self._color_unlinked     = config["colors"]["unlinked"]
+
+
+    def search_dotfiles(self, item, search_dirs):
         # recursive find of files and dirs in channel when file/dir is in search_dirs
-        items = [f for f in item.iterdir() if f.is_file()]
+        items = [Dotfile(f, self._path) for f in item.iterdir() if f.is_file()]
 
         for d in [d for d in item.iterdir() if d.is_dir()]:
             if d.name in search_dirs:
-                items += self.search_channel(d, search_dirs)
+                items += self.search_dotfiles(d, search_dirs)
             else:
-                items.append(d)
+                items.append(Dotfile(d, self._path))
         return sorted(items, key=lambda item: item.name)
 
-    def check_symlink(self, src, link):
-        # check if link links to src
-        if not link.is_symlink():
+    def list(self):
+        """ Pretty print all dotfiles """
+        print(self.colorize(f"\nchannel: {self.name}", self._color_channel_name))
+
+        items =  [d for d in self._dotfiles if d.is_dir()]
+        items += [f for f in self._dotfiles if f.is_file()]
+
+        for item in items:
+            color = self._color_linked if item.check_symlink() else self._color_unlinked
+
+            if item.is_dir():
+                print(self.colorize(f"[D] {item.name}", color))
+            else:
+                print(self.colorize(f"[F] {item.name}", color))
+
+    def get_dotfile(self, name):
+        for df in self._dotfiles:
+            if df.name == name:
+                return df
+
+    def link_all(self, force=False, assume_yes=False):
+        if self.confirm(f"Link all dotfiles in channel {self.name}?", assume_yes):
+            for dotfile in self._dotfiles:
+                dotfile.link(force=force)
+
+    def unlink_all(self, assume_yes=False):
+        if self.confirm(f"Unlink all dotfiles in channel {self.name}?", assume_yes):
+            for dotfile in self._dotfiles:
+                dotfile.unlink()
+
+    def init(self, path):
+        """ Start using a dotfile.
+            Copy dotfile to channel directory and create symlink. """
+        src = Path(self._path / str(path.absolute()).lstrip(str(Path.home().absolute())))
+        dotfile = Dotfile(src, self._path)
+
+        if self.get_dotfile(dotfile.name):
+            logger.error(f"Dotfile already exists in channel: {dotfile.name}")
             return
 
-        return link.resolve() == src
+        if not (path.is_file() or path.is_dir()):
+            logger.error(f"Source path is not a file or directory: {path}")
+            return
+
+        if path.is_symlink():
+            logger.error(f"Source path is a symlink: {path}")
+            return
+        
+        path.replace(dotfile.path)
+        logger.info(f"Moved: {path} -> {dotfile.path}")
+        dotfile.link()
+        return dotfile
 
 
 class App(Utils):
+    def __init__(self):
+        self._channels = []
+
     def load_config_defaults(self, config):
         config['core'] = {}
         config['core']['dotfiles_dir'] = Path.home() / 'dev/dotfiles'
@@ -231,121 +352,24 @@ class App(Utils):
         config['colors']["linked"]       = 'green'
         config['colors']["unlinked"]     = 'default'
 
-    def confirm(self, msg):
-        if self.assume_yes:
-            return True
-        if input(msg + ' [y/N] ').lower() == 'y':
-            return True
+    def get_channels(self, path, blacklist=[".git"]):
+        return [ Channel(d, self.c) for d in Path(path).iterdir() if d.is_dir() and d.name not in blacklist ]
 
-    def list(self):
-        """ list those damn dotfiles """
-        color_dotfiles_dir = self.c["colors"]["dotfiles_dir"]
-        color_channel_name = self.c["colors"]["channel_name"]
-        color_linked       = self.c["colors"]["linked"]
-        color_unlinked     = self.c["colors"]["unlinked"]
+    def get_channel(self, dotfiles_dir, name, create=True):
+        name = name if name else "common"
+        path = dotfiles_dir / name
 
-        channels = [ f for f in Path(self.c['core']['dotfiles_dir']).iterdir() if f.is_dir() ]
-
-        for channel in channels:
-            print(self.colorize(f"\nchannel: {channel.name}", color_channel_name))
-
-            items_unsorted = self.search_channel(channel, self.c['core']['check_dirs'])
-            items = [ d for d in items_unsorted if d.is_dir() ]
-            items += [ f for f in items_unsorted if f.is_file() ]
-
-            for item in items:
-                lnk = Path(Path.home()) / item.relative_to(channel)
-                color = color_linked if self.check_symlink(item, lnk) else color_unlinked
-
-                if item.is_dir():
-                    print(self.colorize(f"[D] {item.relative_to(channel)}", color))
-                else:
-                    print(self.colorize(f"[F] {item.relative_to(channel)}", color))
-
-    def link(self, name, channel):
-        src = Path(self.c['core']['dotfiles_dir']) / channel / name
-        lnk = Path(Path.home()) / name
-
-        if not src.exists():
-            logger.error(f"Source doesn't exist: {src}")
-            return
-
-        if lnk.exists() and self.use_force:
-            logger.info(f"Link path exists, using --force to overwrite: {lnk}")
-            if lnk.is_file():
-                os.remove(lnk)
-            elif lnk.is_symlink():
-                lnk.unlink()
-            elif lnk.is_dir():
-                shutil.rmtree(lnk)
-            else:
-                logger.error(f"Failed to remove path: {lnk}")
+        if not path.is_dir():
+            if not self.confirm(f"Channel {name} doesn't exist, would you like to create it?"):
                 return
+            path.mkdir()
 
-        if lnk.is_symlink():
-            logger.error(f"File already linked: {lnk}")
-            return
+        for channel in self.get_channels(dotfiles_dir):
+            if channel.name == name:
+                return channel
 
-        if lnk.exists():
-            logger.error(f"Destination path exists: {lnk}")
-            return
-
-        lnk.symlink_to(src)
-        logger.info(f"Linked: {lnk} -> {src}")
-
-    def link_all(self, channel):
-        if not self.confirm(f"Link all dotfiles in channel {channel}?"):
-            return
-
-        channel = Path(self.c['core']['dotfiles_dir']) / channel
-
-        for src in self.search_channel(channel, self.c['core']['check_dirs']):
-            self.link(src.relative_to(channel), channel)
-
-    def init(self, name, channel):
-        lnk = Path(name)
-        path = Path(name)
-        src = Path(self.c['core']['dotfiles_dir']) / channel / str(path.absolute()).lstrip(str(Path.home().absolute()))
-
-        if not (path.is_file() or path.is_dir()):
-            logger.error(f"Path is not a file or directory: {path}")
-            return
-
-        if path.is_symlink():
-            logger.error(f"Path is a symlink: {path}")
-            return
-
-        if src.exists():
-            logger.error(f"Dotfile already exists with same name: {path}")
-            return
-
-        path.replace(src)
-        lnk.symlink_to(src)
-        logger.info(f"Moved: {path} -> {src}")
-        logger.info(f"Linked: {lnk} -> {src}")
-
-    def unlink(self, name, channel):
-        dst = Path(Path.home()) / name
-
-        if not dst.exists():
-            logger.error(f"Path doesn't exist: {dst}")
-            return
-
-        if not dst.is_symlink():
-            logger.error(f"Path is not a symlink: {dst}")
-            return
-
-        dst.unlink()
-        print(f"Unlinked path: {dst}")
-
-    def unlink_all(self, channel):
-        if not self.confirm(f"Unlink all dotfiles in channel {channel}?"):
-            return
-
-        channel = Path(self.c['core']['dotfiles_dir']) / channel
-
-        for src in self.search_channel(channel, self.c['core']['check_dirs']):
-            self.unlink(src.relative_to(channel), channel)
+        # this should never display
+        logger.error(f"Unexpected error, failed to find channel: {name}")
 
     def parse_args(self):
         parser = argparse.ArgumentParser(description='Static site generator.')
@@ -363,38 +387,38 @@ class App(Utils):
         args = parser.parse_args()
 
         self.assume_yes = args.assume_yes
-        self.use_force = args.force
 
         if args.dotfiles_dir:
-            self.c['core']['dotfiles_dir'] = args.dotfiles_dir
+            self.c['core']['dotfiles_dir'] = Path(args.dotfiles_dir)
 
-        if not args.channel:
-            channel = Path(self.c['core']['dotfiles_dir']) / "common"
-        else:
-            channel = Path(self.c['core']['dotfiles_dir']) / args.channel
-
-        if not channel.is_dir():
-            if not self.confirm("Channel doesn't exist, would you like to create it?"):
-                return
-            channel.mkdir()
-
+        channel = self.get_channel(self.c['core']['dotfiles_dir'], args.channel, create=True)
+        if not channel:
+            return
 
         if args.link_all:
-            self.link_all(channel)
+            channel.link_all(force=args.force, assume_yes=args.assume_yes)
 
         elif args.unlink_all:
-            self.unlink_all(channel)
+            channel.unlink_all(assume_yes=args.assume_yes)
 
         elif args.link:
-            self.link(args.link, channel)
+            if not (df := channel.get_dotfile(args.link)):
+                logger.error(f"Dotfile not found: {args.link}")
+                return
+            df.link(args.force)
 
         elif args.unlink:
-            self.unlink(args.unlink, channel)
+            if not (df := channel.get_dotfile(args.unlink)):
+                logger.error(f"Dotfile not found: {args.unlink}")
+                return
+            df.unlink()
 
         elif args.init:
-            self.init(args.init, channel)
+            channel.init(Path(args.init))
+
         else:
-            self.list()
+            for c in self.get_channels(self.c['core']['dotfiles_dir']):
+                c.list()
 
     def run(self):
         ch = logging.StreamHandler()

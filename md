@@ -40,6 +40,7 @@ import shutil
 
 try:
     import yaml
+    from cryptography.fernet import Fernet
 except ImportError as e:
     print(f"ImportError: {e}")
     sys.exit(1)
@@ -324,13 +325,14 @@ class Dotfile():
 
 
 class DotfileEncrypted(Dotfile):
-    def __init__(self, path, channel):
+    def __init__(self, path, channel, key):
         self._channel = channel
         self.encrypted_path = path.with_suffix(path.suffix + '.encrypted')
         self.path = path
         self.name = self.path.relative_to(channel)
         self.link_path = Path.home() / self.name
         self.is_encrypted = True
+        self._key = key
 
     def is_file(self):
         return self.encrypted_path.is_file()
@@ -338,29 +340,34 @@ class DotfileEncrypted(Dotfile):
     def is_dir(self):
         return self.encrypted_path.is_dir()
 
-    def encrypt(self, src):
+    def encrypt(self, src, key):
         """ Do some encryption here and write to dest path """
-        if self.self.encrypted_path.exists:
+        if self.encrypted_path.exists():
             logger.error(f"Encrypted file exists in channel: {self.encrypted_path}")
             return
 
-        print(f"Encrypting {src} -> {self.encrypted_path}")
-        # NOTE temporary, remove later
-        src.replace(self.encrypted_path)
-    def decrypt(self):
+        fernet = Fernet(key)
+        encrypted = fernet.encrypt(src.read_bytes())
+        self.encrypted_path.write_bytes(encrypted)
+
+        print(f"Encrypted: {src} -> {self.encrypted_path}")
+        return True
+
+    def decrypt(self, key):
         """ Do some decryption here and write to dest path """
         if self.path.exists():
             logger.error("File is already decrypted")
             return
 
-        print(f"Decrypting {self.encrypted_path} -> {self.path}")
-
-        # NOTE temporary, remove later
-        shutil.copy(self.encrypted_path, self.path)
+        fernet = Fernet(key)
+        decrypted = fernet.decrypt(self.encrypted_path.read_bytes())
+        self.path.write_bytes(decrypted)
+        print(f"Decrypted {self.encrypted_path} -> {self.path}")
         print("Adding to .gitignore")
+        return True
 
     def link(self, force=False):
-        if not self.decrypt():
+        if not self.decrypt(self._key):
             return
         Dotfile.link(self)
         print(f"Adding path to .gitignore: {self.path}")
@@ -374,14 +381,18 @@ class DotfileEncrypted(Dotfile):
 
     def init(self, src):
         """ Move source path to dotfile location """
-        if not self.encrypt(src):
+        if not self.encrypt(src, self._key):
             return
+
+        src.unlink()
+        logger.info(f"Removed original file: {src}")
 
         self.link()
 
 
 class Channel(Utils):
     def __init__(self, path, config):
+        self._key = config["encryption"]["key"]
         self._path = path
         self.name = path.name
         self._dotfiles = self.search_dotfiles(self._path, config['core']['check_dirs'])
@@ -391,10 +402,11 @@ class Channel(Utils):
         self._color_linked       = config["colors"]["linked"]
         self._color_unlinked     = config["colors"]["unlinked"]
 
+
     def create_obj(self, path):
         """ Create a brand new Dotfile object """
         if path.suffix == '.encrypted':
-            return DotfileEncrypted(path.with_suffix(''), self._path)
+            return DotfileEncrypted(path.with_suffix(''), self._path, self._key)
         return Dotfile(path, self._path)
 
     def filter_decrypted(self, dotfiles):
@@ -462,7 +474,7 @@ class Channel(Utils):
         src = self._path / path.absolute().relative_to(Path.home())
 
         if encrypted:
-            dotfile = DotfileEncrypted(src, self._path)
+            dotfile = DotfileEncrypted(src, self._path, self._key)
         else:
             dotfile = Dotfile(src, self._path)
 
@@ -491,6 +503,9 @@ class App(Utils):
         config['core'] = {}
         config['core']['dotfiles_dir'] = str(Path.home() / 'dev/dotfiles')
         config['core']['check_dirs'] = ['.config']
+
+        config['encryption'] = {}
+        config['encryption']['key'] = Fernet.generate_key()
 
         config['colors'] = {}
         config['colors']["channel_name"] = 'magenta'
@@ -576,7 +591,7 @@ class App(Utils):
         self.c = Config(path=Path.home() / '.config/microdot/microdot.conf')
         self.load_config_defaults(self.c)
         if not self.c.configfile_exists():
-            self.c.write(commented=True)
+            self.c.write(commented=False)
 
         self.c.load(merge=False)
 

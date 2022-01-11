@@ -337,17 +337,13 @@ class Channel(Utils):
 
 
 class App(Utils):
-    def __init__(self):
-        self._channels = []
-
     def load_config_defaults(self, config):
         config['core'] = {}
-        config['core']['dotfiles_dir'] = Path.home() / 'dev/dotfiles'
+        config['core']['dotfiles_dir'] = str(Path.home() / 'dev/dotfiles')
         config['core']['check_dirs'] = ['.config']
 
         config['colors'] = {}
         config['colors']["channel_name"] = 'magenta'
-        config['colors']["dotfiles_dir"] = 'blue'
         config['colors']["linked"]       = 'green'
         config['colors']["unlinked"]     = 'default'
 
@@ -355,13 +351,13 @@ class App(Utils):
         """ Find all channels in dotfiles dir and create Channel objects """
         return [ Channel(d, self.c) for d in Path(path).iterdir() if d.is_dir() and d.name not in blacklist ]
 
-    def get_channel(self, dotfiles_dir, name, create=True):
+    def get_channel(self, dotfiles_dir, name, assume_yes=False):
         """ Find or create and return Channel object """
         name = name if name else "common"
         path = dotfiles_dir / name
 
         if not path.is_dir():
-            if not self.confirm(f"Channel {name} doesn't exist, would you like to create it?"):
+            if not self.confirm(f"Channel {name} doesn't exist, would you like to create it?", assume_yes=assume_yes):
                 return
             path.mkdir()
 
@@ -386,13 +382,12 @@ class App(Utils):
 
         args = parser.parse_args()
 
-        self.assume_yes = args.assume_yes
-
         if args.dotfiles_dir:
             self.c['core']['dotfiles_dir'] = Path(args.dotfiles_dir)
-
-        channel = self.get_channel(self.c['core']['dotfiles_dir'], args.channel, create=True)
-        if not channel:
+        self.c['core']['dotfiles_dir'] = Path(self.c['core']['dotfiles_dir'])
+        
+        # get or create channel
+        if not (channel := self.get_channel(self.c['core']['dotfiles_dir'], args.channel, assume_yes=args.assume_yes)):
             return
 
         if args.link_all:
@@ -425,7 +420,7 @@ class App(Utils):
         ch.setFormatter(CustomFormatter())
         logger.addHandler(ch)
 
-        self.c = Config(path=Path.home() / '.config/microdot')
+        self.c = Config(path=Path.home() / '.config/microdot/microdot.conf')
         self.load_config_defaults(self.c)
         if not self.c.configfile_exists():
             self.c.write(commented=True)

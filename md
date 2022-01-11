@@ -350,7 +350,7 @@ class App(Utils):
     def parse_args(self):
         parser = argparse.ArgumentParser(description='Static site generator.')
 
-        parser.add_argument('-c', '--channel',      help='channel', metavar='CHANNEL', default=None)
+        parser.add_argument('-c', '--channel',      help='channel', metavar='NAME', default=None)
         parser.add_argument('-l', '--link',         help='link dotfile', metavar='DOT', default=None)
         parser.add_argument('-L', '--link-all',     help='link all dotfiles in channel', action='store_true')
         parser.add_argument('-u', '--unlink',       help='unlink dotfile', metavar='DOT', default=None)
@@ -359,8 +359,6 @@ class App(Utils):
         parser.add_argument('-d', '--dotfiles-dir', help='dotfiles directory', metavar='DIR', default=None)
         parser.add_argument('-y', '--assume-yes',   help='answer yes to questions', action='store_true')
         parser.add_argument('-f', '--force',        help='overwrite file if exists', action='store_true')
-
-        parser.add_argument('name', nargs='?', metavar='PATH', default=None)
 
         args = parser.parse_args()
 

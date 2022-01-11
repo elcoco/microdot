@@ -271,7 +271,6 @@ class Channel(Utils):
         self._color_linked       = config["colors"]["linked"]
         self._color_unlinked     = config["colors"]["unlinked"]
 
-
     def search_dotfiles(self, item, search_dirs):
         # recursive find of files and dirs in channel when file/dir is in search_dirs
         items = [Dotfile(f, self._path) for f in item.iterdir() if f.is_file()]
@@ -353,9 +352,11 @@ class App(Utils):
         config['colors']["unlinked"]     = 'default'
 
     def get_channels(self, path, blacklist=[".git"]):
+        """ Find all channels in dotfiles dir and create Channel objects """
         return [ Channel(d, self.c) for d in Path(path).iterdir() if d.is_dir() and d.name not in blacklist ]
 
     def get_channel(self, dotfiles_dir, name, create=True):
+        """ Find or create and return Channel object """
         name = name if name else "common"
         path = dotfiles_dir / name
 
@@ -368,8 +369,7 @@ class App(Utils):
             if channel.name == name:
                 return channel
 
-        # this should never display
-        logger.error(f"Unexpected error, failed to find channel: {name}")
+        logger.error(f"This should be unreachable, failed to find channel: {name}")
 
     def parse_args(self):
         parser = argparse.ArgumentParser(description='Static site generator.')
@@ -425,7 +425,7 @@ class App(Utils):
         ch.setFormatter(CustomFormatter())
         logger.addHandler(ch)
 
-        self.c = Config()
+        self.c = Config(path=Path.home() / '.config/microdot')
         self.load_config_defaults(self.c)
         if not self.c.configfile_exists():
             self.c.write(commented=True)

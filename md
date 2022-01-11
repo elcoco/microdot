@@ -237,6 +237,29 @@ class Utils():
             return True
 
 
+class Gitignore():
+    def __init__(self, path):
+        self._path = path / '.gitignore'
+        self._files = []
+
+    def add_path(self, path):
+        self._files.append(path)
+
+    def remove_path(self, path):
+        if not path in self._files:
+            logger.error(f"Failed to remove from gitignore, unknown path: {path}")
+            return
+        self._files.remove(path)
+
+    def list(self):
+        for i,path in enumerate(self._files):
+            print(f"{i}: {path}")
+
+    def write(self):
+        self._path.write_text()
+        logger.info("Wrote .gitignore")
+
+
 class Dotfile():
     def __init__(self, path, channel):
         self._channel = channel
@@ -324,7 +347,6 @@ class DotfileEncrypted(Dotfile):
         print(f"Encrypting {src} -> {self.encrypted_path}")
         # NOTE temporary, remove later
         src.replace(self.encrypted_path)
-
     def decrypt(self):
         """ Do some decryption here and write to dest path """
         if self.path.exists():
@@ -514,6 +536,8 @@ class App(Utils):
         if args.dotfiles_dir:
             self.c['core']['dotfiles_dir'] = Path(args.dotfiles_dir)
         self.c['core']['dotfiles_dir'] = Path(self.c['core']['dotfiles_dir'])
+
+        gitignore = Gitignore(self.c['core']['dotfiles_dir'])
         
         # get or create channel
         if not (channel := self.get_channel(self.c['core']['dotfiles_dir'], args.channel, assume_yes=args.assume_yes)):

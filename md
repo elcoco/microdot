@@ -1,6 +1,36 @@
 #!/usr/bin/env python3
 
-# TODO don't show git dir as channel
+# DONE don't show git dir as channel
+# TODO make blacklist configurable
+# TODO when linking or unlinking all, give a list of files before proceeding
+# TODO when linking or unlinking all, filter file list
+
+"""
+    You can add a new encrypted file with: $ md --init file.txt -e
+    This will:
+        - Move the file to the channel directory
+        - Encrypt the file, using the extension: .encrypted
+        - Decrypt the encrypted file and place it next to the encrypted file.
+        - Add the non-encrypted file to the .gitignore file to protect it from pushing to GIT.
+        
+    When linking an encrypted file:
+        The encrypted file will be visible in the list without the .encrypted extension but with a [E] marker
+        The encrypted file can be linked as normal with: $ md --link file.txt
+        This will:
+            - Decrypt the corresponding encrypted file and place it next to the encrypted file.
+            - Add the non-encrypted file to the .gitignore file to protect it from pushing to GIT.
+
+    When unlinking an encrypted file:
+        The encrypted file will be visible in the list without the .encrypted extension but with a [E] marker
+        The encrypted file can be unlinked as normal with: $ md --unlink file.txt
+        This will:
+            - Remove the link
+            - Remove the un-encrypte file
+            - Remove the file entry on the .gitignore file
+
+    When the repository is updated, the linked encrypted files need to be decrypted by using: $ md --update
+    We can automate this by managing the GIT repo for the user, but this will add more complexity.
+"""
 
 import os, sys
 import logging
@@ -211,8 +241,9 @@ class Dotfile():
     def __init__(self, path, channel):
         self._channel = channel
         self.path = path
-        self.name = str(path.absolute()).lstrip(str(channel.absolute()))
-        self.link_path = Path(Path.home()) / self.name
+        self.name = path.relative_to(channel)
+        self.link_path = Path.home() / self.name
+        self.is_encrypted = False
 
     def check_symlink(self):
         # check if link links to src
@@ -251,6 +282,7 @@ class Dotfile():
 
         link.symlink_to(self.path)
         logger.info(f"Linked: {link} -> {self.path}")
+        return True
     
     def unlink(self):
         if not self.check_symlink():
@@ -259,6 +291,71 @@ class Dotfile():
 
         self.link_path.unlink()
         print(f"Unlinked: {self.link_path}")
+        return True
+
+    def init(self, src):
+        """ Move source path to dotfile location """
+        src.replace(self.path)
+        logger.info(f"Moved: {src} -> {self.path}")
+        self.link()
+
+
+class DotfileEncrypted(Dotfile):
+    def __init__(self, path, channel):
+        self._channel = channel
+        self.encrypted_path = path.with_suffix(path.suffix + '.encrypted')
+        self.path = path
+        self.name = self.path.relative_to(channel)
+        self.link_path = Path.home() / self.name
+        self.is_encrypted = True
+
+    def is_file(self):
+        return self.encrypted_path.is_file()
+
+    def is_dir(self):
+        return self.encrypted_path.is_dir()
+
+    def encrypt(self, src):
+        """ Do some encryption here and write to dest path """
+        if self.self.encrypted_path.exists:
+            logger.error(f"Encrypted file exists in channel: {self.encrypted_path}")
+            return
+
+        print(f"Encrypting {src} -> {self.encrypted_path}")
+        # NOTE temporary, remove later
+        src.replace(self.encrypted_path)
+
+    def decrypt(self):
+        """ Do some decryption here and write to dest path """
+        if self.path.exists():
+            logger.error("File is already decrypted")
+            return
+
+        print(f"Decrypting {self.encrypted_path} -> {self.path}")
+
+        # NOTE temporary, remove later
+        shutil.copy(self.encrypted_path, self.path)
+        print("Adding to .gitignore")
+
+    def link(self, force=False):
+        if not self.decrypt():
+            return
+        Dotfile.link(self)
+        print(f"Adding path to .gitignore: {self.path}")
+
+    def unlink(self):
+        if not Dotfile.unlink(self):
+            return
+        print("Removing from .gitignore")
+        print(f"Removing decrypted file: {self.path}")
+        self.path.unlink()
+
+    def init(self, src):
+        """ Move source path to dotfile location """
+        if not self.encrypt(src):
+            return
+
+        self.link()
 
 
 class Channel(Utils):
@@ -266,20 +363,38 @@ class Channel(Utils):
         self._path = path
         self.name = path.name
         self._dotfiles = self.search_dotfiles(self._path, config['core']['check_dirs'])
+        self._dotfiles = self.filter_decrypted(self._dotfiles)
 
         self._color_channel_name = config["colors"]["channel_name"]
         self._color_linked       = config["colors"]["linked"]
         self._color_unlinked     = config["colors"]["unlinked"]
 
+    def create_obj(self, path):
+        """ Create a brand new Dotfile object """
+        if path.suffix == '.encrypted':
+            return DotfileEncrypted(path.with_suffix(''), self._path)
+        return Dotfile(path, self._path)
+
+    def filter_decrypted(self, dotfiles):
+        """ Check if there are decrypted paths in the list """
+        ret = [df for df in dotfiles if df.is_encrypted]
+        encr_paths = [df.path for df in dotfiles if df.is_encrypted]
+
+        for df in dotfiles:
+            if df.path not in encr_paths:
+                ret.append(df)
+        return ret
+
     def search_dotfiles(self, item, search_dirs):
+        # TODO fileter out unencrypted versions of encrypted files
         # recursive find of files and dirs in channel when file/dir is in search_dirs
-        items = [Dotfile(f, self._path) for f in item.iterdir() if f.is_file()]
+        items = [self.create_obj(f) for f in item.iterdir() if f.is_file()]
 
         for d in [d for d in item.iterdir() if d.is_dir()]:
             if d.name in search_dirs:
                 items += self.search_dotfiles(d, search_dirs)
             else:
-                items.append(Dotfile(d, self._path))
+                items.append(self.create_obj(d))
         return sorted(items, key=lambda item: item.name)
 
     def list(self):
@@ -298,12 +413,14 @@ class Channel(Utils):
 
             if item.is_dir():
                 print(self.colorize(f"[D] {item.name}", color))
+            elif item.is_encrypted:
+                print(self.colorize(f"[E] {item.name}", color))
             else:
                 print(self.colorize(f"[F] {item.name}", color))
 
     def get_dotfile(self, name):
         for df in self._dotfiles:
-            if df.name == name:
+            if str(df.name) == str(name):
                 return df
 
     def link_all(self, force=False, assume_yes=False):
@@ -316,11 +433,18 @@ class Channel(Utils):
             for dotfile in self._dotfiles:
                 dotfile.unlink()
 
-    def init(self, path):
+    def init(self, path, encrypted=False):
         """ Start using a dotfile.
             Copy dotfile to channel directory and create symlink. """
-        src = Path(self._path / str(path.absolute()).lstrip(str(Path.home().absolute())))
-        dotfile = Dotfile(src, self._path)
+
+        src = self._path / path.absolute().relative_to(Path.home())
+
+        if encrypted:
+            dotfile = DotfileEncrypted(src, self._path)
+        else:
+            dotfile = Dotfile(src, self._path)
+
+        #dotfile = self.create_obj(src)
 
         if self.get_dotfile(dotfile.name):
             logger.error(f"Dotfile already exists in channel: {dotfile.name}")
@@ -333,10 +457,10 @@ class Channel(Utils):
         if path.is_symlink():
             logger.error(f"Source path is a symlink: {path}")
             return
-        
-        path.replace(dotfile.path)
-        logger.info(f"Moved: {path} -> {dotfile.path}")
-        dotfile.link()
+
+        dotfile.init(path)
+        #path.replace(dotfile.path)
+        #dotfile.link()
         return dotfile
 
 
@@ -380,6 +504,7 @@ class App(Utils):
         parser.add_argument('-u', '--unlink',       help='unlink dotfile', metavar='DOT', default=None)
         parser.add_argument('-U', '--unlink-all',   help='unlink all dotfiles in channel', action='store_true')
         parser.add_argument('-i', '--init',         help='init dotfile', metavar='PATH', default=None)
+        parser.add_argument('-e', '--encrypt',      help='encrypt file', action='store_true')
         parser.add_argument('-d', '--dotfiles-dir', help='dotfiles directory', metavar='DIR', default=None)
         parser.add_argument('-y', '--assume-yes',   help='answer yes to questions', action='store_true')
         parser.add_argument('-f', '--force',        help='overwrite file if exists', action='store_true')
@@ -413,7 +538,7 @@ class App(Utils):
             df.unlink()
 
         elif args.init:
-            channel.init(Path(args.init))
+            channel.init(Path(args.init), encrypted=args.encrypt)
 
         else:
             for c in self.get_channels(self.c['core']['dotfiles_dir']):

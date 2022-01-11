@@ -289,6 +289,10 @@ class Channel(Utils):
         items =  [d for d in self._dotfiles if d.is_dir()]
         items += [f for f in self._dotfiles if f.is_file()]
 
+        if len(items) == 0:
+            print(self.colorize(f"No dotfiles yet!", 'red'))
+            return
+
         for item in items:
             color = self._color_linked if item.check_symlink() else self._color_unlinked
 

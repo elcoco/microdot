@@ -38,15 +38,12 @@ import argparse
 from pathlib import Path
 import shutil
 
-from core import gitignore, state
+from core.gitignore import Gitignore
+from core import state
 from core.channel import get_channels, get_channel, get_encrypted_dotfiles
 from core.exceptions import MicrodotError
 
 logger = logging.getLogger("microdot")
-
-
-
-
 
 
 class App():
@@ -66,56 +63,46 @@ class App():
 
         args = parser.parse_args()
 
-        s = state['state']
-        s['do_link_all']   = args.link_all
-        s['do_unlink_all'] = args.unlink_all
-        s['do_link']       = args.link
-        s['do_unlink']     = args.unlink
-        s['do_init']       = args.init
-
-        s['do_encrypt']    = args.encrypt
-        s['do_assume_yes'] = args.assume_yes
-        s['do_force']      = args.force
+        state.do_link_all     = args.link_all
+        state.do_unlink_all   = args.unlink_all
+        state.do_link         = args.link
+        state.do_unlink       = args.unlink
+        state.do_init         = args.init
+        state.do_encrypt      = args.encrypt
+        state.do_assume_yes   = args.assume_yes
+        state.do_force        = args.force
 
         # find dotfiles directory
         if args.dotfiles_dir:
-            state['core']['dotfiles_dir'] = Path(args.dotfiles_dir)
+            state.core.dotfiles_dir = Path(args.dotfiles_dir)
         else:
-            state['core']['dotfiles_dir'] = Path(state['core']['dotfiles_dir'])
+            state.core.dotfiles_dir = Path(state.core.dotfiles_dir)
         
         # get or create channel
-        s['channel'] = get_channel(args.channel, state, assume_yes=s['do_assume_yes'])
-
-        # TODO: error if channel doesn't exist
-
+        state.channel = get_channel(args.channel, state, assume_yes=state.do_assume_yes)
 
     def run(self):
         self.parse_args(state)
 
-        gitignore.set_dotfiles_dir(state['core']['dotfiles_dir'])
+        if state.do_link_all:
+            state.channel.link_all(force=state.do_force, assume_yes=state.do_assume_yes)
 
-        s = state['state']
-        channel = s['channel']
+        elif state.do_unlink_all:
+            state.channel.unlink_all(assume_yes=state.do_assume_yes)
 
-        if s['do_link_all']:
-            channel.link_all(force=s['do_force'], assume_yes=s['do_assume_yes'])
-
-        elif s['do_unlink_all']:
-            channel.unlink_all(assume_yes=s['do_assume_yes'])
-
-        elif s['do_link']:
-            if not (dotfile := channel.get_dotfile(s['do_link'])):
-                logger.error(f"Dotfile not found: {s['do_link']}")
+        elif state.do_link:
+            if not (dotfile := state.channel.get_dotfile(state.do_link)):
+                logger.error(f"Dotfile not found: {state.do_link}")
                 return
 
             try:
-                dotfile.link(s['do_force'])
+                dotfile.link(state.do_force)
             except MicrodotError as e:
                 logger.error(e)
 
-        elif s['do_unlink']:
-            if not (dotfile := channel.get_dotfile(s['do_unlink'])):
-                logger.error(f"Dotfile not found: {s['do_unlink']}")
+        elif state.do_unlink:
+            if not (dotfile := state.channel.get_dotfile(state.do_unlink)):
+                logger.error(f"Dotfile not found: {state.do_unlink}")
                 return
 
             try:
@@ -123,21 +110,24 @@ class App():
             except MicrodotError as e:
                 logger.error(e)
 
-        elif s['do_init']:
+        elif state.do_init:
             try:
-                channel.init(Path(s['do_init']), encrypted=s['do_encrypt'])
+                state.channel.init(Path(state.do_init), encrypted=state.do_encrypt)
             except MicrodotError as e:
                 logger.error(e)
 
         else:
-            for channel in get_channels(state):
-                channel.list()
+            for state.channel in get_channels(state):
+                state.channel.list()
+            return
 
+
+        # Add encrypted files to the gitignore file
+        gitignore = Gitignore(state.core.dotfiles_dir)
         for dotfile in get_encrypted_dotfiles(state):
             gitignore.add(dotfile.channel.name / dotfile.name)
 
         gitignore.write()
-        gitignore.list()
 
 
 

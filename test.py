@@ -1,25 +1,47 @@
 #!/usr/bin/env python3
 
-from pathlib import Path
-from core.config import Config
+import logging
 
-#def load_config_defaults(state):
-#    state['core'] = {}
-#    state['core']['dotfiles_dir'] = str(Path.home() / 'dev/dotfiles')
-#    state['core']['check_dirs'] = ['.config']
-#
-#    state['encryption'] = {}
-#    #state['encryption']['key'] = Fernet.generate_key()
-#
-#    state['colors'] = {}
-#    state['colors']["channel_name"] = 'magenta'
-#    state['colors']["linked"]       = 'green'
-#    state['colors']["unlinked"]     = 'default'
+from types import SimpleNamespace
 
-state = Config()
-#load_config_defaults(state)
+logger = logging.getLogger('microdot')
 
-state.bever = {}
-state.bever['banaan'] = 'sldfsdf'
-state.super().__init__(state._config)
-print(state.bever.banaan)
+
+class NestedNamespace(SimpleNamespace):
+    def __init__(self, dictionary, **kwargs):
+        super().__init__(**kwargs)
+        self.__dict__['_dict'] = dictionary
+        self.update(self._dict)
+
+    def update(self, dictionary):
+        for key, value in dictionary.items():
+            if isinstance(value, dict):
+                super().__setattr__(key, NestedNamespace(value))
+            else:
+                super().__setattr__(key, value)
+
+    def __setattr__(self, key, value):
+        self.__dict__['_dict'][key] = value
+        self.update(self._dict)
+
+
+
+d = {}
+d['a'] = {}
+d['a']['banaan'] = 'qqqqqq'
+d['a']['disko'] = {}
+d['a']['disko']['bever'] = 'aaaaaaaa'
+d['a']['disko']['bever2'] = 'bbbbbb'
+d['b'] = {}
+d['c'] = {}
+
+
+nd = NestedNamespace(d)
+print(nd.a.banaan)
+print(nd.a.disko)
+nd.a = {}
+nd.a.bever = 'kljk'
+
+print(nd.a.bever)
+
+

@@ -1,7 +1,6 @@
 from pathlib import Path
 import logging
 
-from core.gitignore import Gitignore
 from core.config import Config
 
 from cryptography.fernet import Fernet
@@ -52,41 +51,31 @@ ch.setFormatter(CustomFormatter())
 logger.addHandler(ch)
 logger.setLevel(logging.DEBUG)
 
-
-def load_config_defaults(state):
-    state['core'] = {}
-    state['core']['dotfiles_dir'] = str(Path.home() / 'dev/dotfiles')
-    state['core']['check_dirs'] = ['.config']
-    state['core']['channel_blacklist'] = ['.git']
-
-    state['encryption'] = {}
-    state['encryption']['key'] = Fernet.generate_key()
-
-    state['colors'] = {}
-    state['colors']["channel_name"] = 'magenta'
-    state['colors']["linked"]       = 'green'
-    state['colors']["unlinked"]     = 'default'
-
-
-
+# set config default state
 state = Config(path=Path.home() / '.config/microdot/microdot.conf')
-load_config_defaults(state)
+state.core                   = {}
+state.core.dotfiles_dir      = str(Path.home() / 'dev/dotfiles')
+state.core.check_dirs        = ['.config']
+state.core.channel_blacklist = ['.git']
+state.encryption             = {}
+state.encryption.key         = Fernet.generate_key()
+state.colors                 = {}
+state.colors.channel_name    = 'magenta'
+state.colors.linked          = 'green'
+state.colors.unlinked        = 'default'
+
 if not state.configfile_exists():
     state.write(commented=False)
 
 state.load(merge=False)
 
-# init state
-state['state'] = {}
-state['state']['channel'] = None
-state['state']['do_link'] = None
-state['state']['do_unlink'] = None
-state['state']['do_link_all'] = None
-state['state']['do_unlink_all'] = None
-state['state']['do_init'] = None
-state['state']['do_encrypt'] = False
-state['state']['do_assume_yes'] = False
-state['state']['do_force'] = False
-
-gitignore = Gitignore()
-
+# init program state
+state.channel       = None
+state.do_link       = None
+state.do_unlink     = None
+state.do_link_all   = None
+state.do_unlink_all = None
+state.do_init       = None
+state.do_encrypt    = False
+state.do_assume_yes = False
+state.do_force      = False

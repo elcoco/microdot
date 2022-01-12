@@ -168,15 +168,15 @@ class DotfileEncrypted(Dotfile):
 
 class Channel(Utils):
     def __init__(self, path, state):
-        self._key = state['encryption']['key']
+        self._key = state.encryption.key
         self._path = path
         self.name = path.name
-        self.dotfiles = self.search_dotfiles(self._path, state['core']['check_dirs'])
+        self.dotfiles = self.search_dotfiles(self._path, state.core.check_dirs)
         self.dotfiles = self.filter_decrypted(self.dotfiles)
 
-        self._color_channel_name = state["colors"]["channel_name"]
-        self._color_linked       = state["colors"]["linked"]
-        self._color_unlinked     = state["colors"]["unlinked"]
+        self._color_channel_name = state.colors.channel_name
+        self._color_linked       = state.colors.linked
+        self._color_unlinked     = state.colors.unlinked
 
     def create_obj(self, path):
         """ Create a brand new Dotfile object """
@@ -276,15 +276,15 @@ class Channel(Utils):
 
 def get_channels(state):
     """ Find all channels in dotfiles dir and create Channel objects """
-    path      = state['core']['dotfiles_dir']
-    blacklist = state['core']['channel_blacklist']
+    path      = state.core.dotfiles_dir
+    blacklist = state.core.channel_blacklist
     return [ Channel(d, state) for d in Path(path).iterdir() if d.is_dir() and d.name not in blacklist ]
 
 
 def get_channel(name, state, assume_yes=False):
     """ Find or create and return Channel object """
     name         = name if name else "common"
-    dotfiles_dir = state['core']['dotfiles_dir']
+    dotfiles_dir = state.core.dotfiles_dir
     path         = dotfiles_dir / name
 
     if not path.is_dir():
@@ -311,5 +311,3 @@ def get_encrypted_dotfiles(state, linked=True):
             if dotfile.is_encrypted and dotfile.check_symlink():
                 linked.append(dotfile)
     return linked
-
-

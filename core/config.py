@@ -4,6 +4,8 @@
 import yaml
 import os, sys
 import logging
+from pprint import pprint
+from pathlib import Path
 
 from types import SimpleNamespace
 
@@ -11,57 +13,39 @@ logger = logging.getLogger('microdot')
 
 class ConfigException(Exception): pass
 
-
 class NestedNamespace(SimpleNamespace):
     def __init__(self, dictionary, **kwargs):
         super().__init__(**kwargs)
+        self.__dict__['_config'] = dictionary
+        self.update(self._config)
+
+    def update(self, dictionary):
         for key, value in dictionary.items():
             if isinstance(value, dict):
-                self.__setattr__(key, NestedNamespace(value))
+                super().__setattr__(key, NestedNamespace(value))
             else:
-                self.__setattr__(key, value)
+                super().__setattr__(key, value)
+
+    def __setattr__(self, key, value):
+        self.__dict__['_config'][key] = value
+        self.update(self._config)
 
 
-class Config(dict):
-    def __init__(self, path=False):
-        self._config_path = path
-        self._config = {}
+class Config(NestedNamespace):
+    def __init__(self, path=None, **kwargs):
+        super().__init__({}, **kwargs)
 
-        if not path:
-            configdir = os.path.expanduser('~') + '/.config/' + os.path.basename(sys.argv[0]).split(".")[0]
-            self._config_path = configdir + '/' + os.path.basename(sys.argv[0]).split(".")[0] + '.yaml'
-
-    def __str__(self):
-        return str(self._config)
-
-    def __bool__(self):
-        # is called when object is tested with: if <object> == True
-        if len(self._config) > 0:
-            return True
+        # we can't directly assign because that would trigger __setattr__
+        if path:
+            self.__dict__['_config_path'] = path
         else:
-            return False
-
-    def __getitem__(self, key):
-        try:
-            return self._config[key]
-        except KeyError as e:
-            raise KeyError(f"Key doesn't exist, key={key}")
-
-    def __setitem__(self, key, value):
-        try:
-            self._config[key] = value
-        except KeyError as e:
-            logger.warning(f"Failed to set key, Key doesn't exist, key={key}")
+            self.__dict__['_config_path'] = (Path.home() / '.config' / Path(__file__).name).with_suffix('') / 'config.yaml'
 
     def set_path(self, path):
-        self._config_path = path
+        self.__dict__['_config_path'] = path
 
-    def set_config_data(self, data):
-        self._config = data
-
-    def keys(self):
-        # override dict keys method
-        return self._config.keys()
+    def configfile_exists(self):
+        return self._config_path.is_file()
 
     def dict_deep_merge(self, d1, d2):
         """ deep merge two dicts """
@@ -72,22 +56,6 @@ class Config(dict):
             else:
                 dm[k] = v
         return dm
-
-    def test_file(self, path):
-        """ Test if file exists """
-        try:
-            with open(path) as f:
-                return True
-        except IOError as e:
-            return False
-
-    def ensure_dir(self, dirname):
-        if not os.path.exists(dirname):
-            os.makedirs(dirname)
-            logger.info(f"Created directory: {dirname}")
-
-    def configfile_exists(self):
-        return self.test_file(self._config_path)
 
     def load(self, path=False, merge=True):
         if not path:
@@ -101,9 +69,12 @@ class Config(dict):
                     return
 
                 if merge:
-                    self._config = self.dict_deep_merge(self._config, cfg)
+                    self.__dict__['_config'] = self.dict_deep_merge(self._config, cfg)
                 else:
-                    self._config = cfg
+                    self.__dict__['_config'] = cfg
+
+                # update attributes
+                self.update(self._config)
 
                 logger.info(f"Loaded config file, path={path}")
             return True
@@ -116,7 +87,9 @@ class Config(dict):
         if not path:
             path = self._config_path
 
-        self.ensure_dir(os.path.dirname(path))
+        if not path.is_dir():
+            path.mkdir()
+            logger.info(f"Created directory: {dirname}")
 
         with open(path, 'w') as outfile:
             try:
@@ -127,14 +100,5 @@ class Config(dict):
 
         # comment the config file that was just written by libYAML
         if commented:
-            lines = []
-
-            with open(self._config_path, 'r') as f:
-                lines = f.readlines()
-
-            lines = [f"#{x}" for x in lines]
-
-            with open(self._config_path, 'w') as f:
-                f.writelines(lines)
-
-
+            lines = [f"#{x}" for x in path.read_text().split('\n')]
+            path.write_text('\n'.join(lines))

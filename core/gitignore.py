@@ -8,7 +8,7 @@ logger = logging.getLogger("microdot")
 
 class Gitignore():
     def __init__(self, dotfiles_dir):
-        self._lines = []
+        self._lines = [ '*.py[cod]', '*.__pycache__/', '.gitignore' ]
         self._path = dotfiles_dir / '.gitignore'
 
     def add(self, line):

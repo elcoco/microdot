@@ -40,7 +40,7 @@ import shutil
 
 from core.gitignore import Gitignore
 from core import state
-from core.channel import get_channels, get_channel, get_encrypted_dotfiles
+from core.channel import get_channels, get_channel, get_linked_encrypted_dotfiles
 from core.exceptions import MicrodotError
 
 logger = logging.getLogger("microdot")
@@ -94,37 +94,37 @@ class App():
             if not (dotfile := state.channel.get_dotfile(state.do_link)):
                 logger.error(f"Dotfile not found: {state.do_link}")
                 return
-
             try:
                 dotfile.link(state.do_force)
             except MicrodotError as e:
                 logger.error(e)
+                return
 
         elif state.do_unlink:
             if not (dotfile := state.channel.get_dotfile(state.do_unlink)):
                 logger.error(f"Dotfile not found: {state.do_unlink}")
                 return
-
             try:
                 dotfile.unlink()
             except MicrodotError as e:
                 logger.error(e)
+                return
 
         elif state.do_init:
             try:
                 state.channel.init(Path(state.do_init), encrypted=state.do_encrypt)
             except MicrodotError as e:
                 logger.error(e)
+                return
 
         else:
             for state.channel in get_channels(state):
                 state.channel.list()
             return
 
-
-        # Add encrypted files to the gitignore file
+        # Add linked encrypted files to the gitignore file
         gitignore = Gitignore(state.core.dotfiles_dir)
-        for dotfile in get_encrypted_dotfiles(state):
+        for dotfile in get_linked_encrypted_dotfiles(state):
             gitignore.add(dotfile.channel.name / dotfile.name)
 
         gitignore.write()

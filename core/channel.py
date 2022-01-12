@@ -304,7 +304,7 @@ def get_channel(name, state, assume_yes=False):
     logger.error(f"This should be unreachable, failed to find channel: {name}")
 
 
-def get_encrypted_dotfiles(state, linked=True):
+def get_linked_encrypted_dotfiles(state, linked=True):
     linked = []
     for channel in get_channels(state):
         for dotfile in channel.dotfiles:

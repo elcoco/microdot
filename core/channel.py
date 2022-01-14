@@ -6,6 +6,8 @@ import shutil
 from core.exceptions import MicrodotError
 from core import gitignore
 
+from core.utils import confirm, colorize
+
 try:
     from cryptography.fernet import Fernet
     import cryptography
@@ -16,35 +18,32 @@ except ImportError as e:
 logger = logging.getLogger("microdot")
 
 
-class Utils():
-    def colorize(self, string, color):
-        colors = {}
-        colors['black']    = '\033[0;30m'
-        colors['bblack']   = '\033[1;30m'
-        colors['red']      = '\033[0;31m'
-        colors['bred']     = '\033[1;31m'
-        colors['green']    = '\033[0;32m'
-        colors['bgreen']   = '\033[1;32m'
-        colors['yellow']   = '\033[0;33m'
-        colors['byellow']  = '\033[1;33m'
-        colors['blue']     = '\033[0;34m'
-        colors['bblue']    = '\033[1;34m'
-        colors['magenta']  = '\033[0;35m'
-        colors['bmagenta'] = '\033[1;35m'
-        colors['cyan']     = '\033[0;36m'
-        colors['bcyan']    = '\033[1;36m'
-        colors['white']    = '\033[0;37m'
-        colors['bwhite']   = '\033[1;37m'
-        colors['reset']    = '\033[0m'
-        colors['default']    = '\033[0m'
+"""
+    You can add a new encrypted file with: $ md --init file.txt -e
+    This will:
+        - Move the file to the channel directory
+        - Encrypt the file, using the extension: .encrypted
+        - Decrypt the encrypted file and place it next to the encrypted file.
+        - Add the non-encrypted file to the .gitignore file to protect it from pushing to GIT.
+        
+    When linking an encrypted file:
+        The encrypted file will be visible in the list without the .encrypted extension but with a [E] marker
+        The encrypted file can be linked as normal with: $ md --link file.txt
+        This will:
+            - Decrypt the corresponding encrypted file and place it next to the encrypted file.
+            - Add the non-encrypted file to the .gitignore file to protect it from pushing to GIT.
 
-        return colors[color] + string + colors["reset"]
+    When unlinking an encrypted file:
+        The encrypted file will be visible in the list without the .encrypted extension but with a [E] marker
+        The encrypted file can be unlinked as normal with: $ md --unlink file.txt
+        This will:
+            - Remove the link
+            - Remove the un-encrypte file
+            - Remove the file entry on the .gitignore file
 
-    def confirm(self, msg, assume_yes=False):
-        if assume_yes:
-            return True
-        if input(msg + ' [y/N] ').lower() == 'y':
-            return True
+    When the repository is updated, the linked encrypted files need to be decrypted by using: $ md --update
+    We can automate this by managing the GIT repo for the user, but this will add more complexity.
+"""
 
 
 class Dotfile():
@@ -166,7 +165,7 @@ class DotfileEncrypted(Dotfile):
         self.link()
 
 
-class Channel(Utils):
+class Channel():
     def __init__(self, path, state):
         self._key = state.encryption.key
         self._path = path
@@ -208,24 +207,24 @@ class Channel(Utils):
 
     def list(self):
         """ Pretty print all dotfiles """
-        print(self.colorize(f"\nchannel: {self.name}", self._color_channel_name))
+        print(colorize(f"\nchannel: {self.name}", self._color_channel_name))
 
         items =  [d for d in self.dotfiles if d.is_dir()]
         items += [f for f in self.dotfiles if f.is_file()]
 
         if len(items) == 0:
-            print(self.colorize(f"No dotfiles yet!", 'red'))
+            print(colorize(f"No dotfiles yet!", 'red'))
             return
 
         for item in items:
             color = self._color_linked if item.check_symlink() else self._color_unlinked
 
             if item.is_dir():
-                print(self.colorize(f"[D] {item.name}", color))
+                print(colorize(f"[D] {item.name}", color))
             elif item.is_encrypted:
-                print(self.colorize(f"[E] {item.name}", color))
+                print(colorize(f"[E] {item.name}", color))
             else:
-                print(self.colorize(f"[F] {item.name}", color))
+                print(colorize(f"[F] {item.name}", color))
 
     def get_dotfile(self, name):
         for df in self.dotfiles:
@@ -233,12 +232,12 @@ class Channel(Utils):
                 return df
 
     def link_all(self, force=False, assume_yes=False):
-        if self.confirm(f"Link all dotfiles in channel {self.name}?", assume_yes):
+        if confirm(f"Link all dotfiles in channel {self.name}?", assume_yes):
             for dotfile in self.dotfiles:
                 dotfile.link(force=force)
 
     def unlink_all(self, assume_yes=False):
-        if self.confirm(f"Unlink all dotfiles in channel {self.name}?", assume_yes):
+        if confirm(f"Unlink all dotfiles in channel {self.name}?", assume_yes):
             for dotfile in self.dotfiles:
                 dotfile.unlink()
 
@@ -288,7 +287,7 @@ def get_channel(name, state, assume_yes=False):
     path         = dotfiles_dir / name
 
     if not path.is_dir():
-        if not self.confirm(f"Channel {name} doesn't exist, would you like to create it?", assume_yes=assume_yes):
+        if not confirm(f"Channel {name} doesn't exist, would you like to create it?", assume_yes=assume_yes):
             return
         try:
             path.mkdir(parents=True)

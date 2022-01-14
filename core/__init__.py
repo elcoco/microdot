@@ -2,6 +2,7 @@ from pathlib import Path
 import logging
 
 from core.config import Config
+from core.utils import Lock
 
 from cryptography.fernet import Fernet
 
@@ -63,6 +64,9 @@ state.colors                 = {}
 state.colors.channel_name    = 'magenta'
 state.colors.linked          = 'green'
 state.colors.unlinked        = 'default'
+state.git                    = {}
+state.git.remote_url         = ''
+state.git.pull_interval      = 30
 
 if not state.configfile_exists():
     state.write(commented=False)
@@ -76,6 +80,9 @@ state.do_unlink     = None
 state.do_link_all   = None
 state.do_unlink_all = None
 state.do_init       = None
+state.do_watch      = False
 state.do_encrypt    = False
 state.do_assume_yes = False
 state.do_force      = False
+
+lock = Lock('/tmp/microdot.lock')

@@ -4,44 +4,18 @@
 # TODO make blacklist configurable
 # TODO when linking or unlinking all, give a list of files before proceeding
 # TODO when linking or unlinking all, filter file list
+# TODO add option to stop daemon
+# TODO when internet is gone, gitpush will just skip. when internet reconnects, the push is not triggered again
 
-"""
-    You can add a new encrypted file with: $ md --init file.txt -e
-    This will:
-        - Move the file to the channel directory
-        - Encrypt the file, using the extension: .encrypted
-        - Decrypt the encrypted file and place it next to the encrypted file.
-        - Add the non-encrypted file to the .gitignore file to protect it from pushing to GIT.
-        
-    When linking an encrypted file:
-        The encrypted file will be visible in the list without the .encrypted extension but with a [E] marker
-        The encrypted file can be linked as normal with: $ md --link file.txt
-        This will:
-            - Decrypt the corresponding encrypted file and place it next to the encrypted file.
-            - Add the non-encrypted file to the .gitignore file to protect it from pushing to GIT.
-
-    When unlinking an encrypted file:
-        The encrypted file will be visible in the list without the .encrypted extension but with a [E] marker
-        The encrypted file can be unlinked as normal with: $ md --unlink file.txt
-        This will:
-            - Remove the link
-            - Remove the un-encrypte file
-            - Remove the file entry on the .gitignore file
-
-    When the repository is updated, the linked encrypted files need to be decrypted by using: $ md --update
-    We can automate this by managing the GIT repo for the user, but this will add more complexity.
-"""
-
-import os, sys
 import logging
 import argparse
 from pathlib import Path
-import shutil
 
 from core.gitignore import Gitignore
 from core import state
 from core.channel import get_channels, get_channel, get_linked_encrypted_dotfiles
 from core.exceptions import MicrodotError
+from core.daemon import watch_repo
 
 logger = logging.getLogger("microdot")
 
@@ -57,6 +31,7 @@ class App():
         parser.add_argument('-U', '--unlink-all',   help='unlink all dotfiles in channel', action='store_true')
         parser.add_argument('-i', '--init',         help='init dotfile', metavar='PATH', default=None)
         parser.add_argument('-e', '--encrypt',      help='encrypt file', action='store_true')
+        parser.add_argument('-w', '--watch',        help='start git watch daemon', action='store_true')
         parser.add_argument('-d', '--dotfiles-dir', help='dotfiles directory', metavar='DIR', default=None)
         parser.add_argument('-y', '--assume-yes',   help='answer yes to questions', action='store_true')
         parser.add_argument('-f', '--force',        help='overwrite file if exists', action='store_true')
@@ -71,6 +46,7 @@ class App():
         state.do_encrypt      = args.encrypt
         state.do_assume_yes   = args.assume_yes
         state.do_force        = args.force
+        state.do_watch        = args.watch
 
         # find dotfiles directory
         if args.dotfiles_dir:
@@ -113,6 +89,13 @@ class App():
         elif state.do_init:
             try:
                 state.channel.init(Path(state.do_init), encrypted=state.do_encrypt)
+            except MicrodotError as e:
+                logger.error(e)
+                return
+
+        elif state.do_watch:
+            try:
+                watch_repo(state.core.dotfiles_dir)
             except MicrodotError as e:
                 logger.error(e)
                 return

@@ -5,8 +5,9 @@
 # TODO when linking or unlinking all, give a list of files before proceeding
 # TODO when linking or unlinking all, filter file list
 # TODO add option to stop daemon
-# TODO when internet is gone, gitpush will just skip. when internet reconnects, the push is not triggered again
+# DONE when internet is gone, gitpush will just skip. when internet reconnects, the push is not triggered again
 # TODO when a linked encrypted file is updated when using watch, update decrypted file
+# TODO when answered no when creating common channel, program crashes`
 
 import logging
 import argparse

@@ -55,7 +55,7 @@ logger.setLevel(logging.DEBUG)
 # set config default state
 state = Config(path=Path.home() / '.config/microdot/microdot.conf')
 state.core                   = {}
-state.core.dotfiles_dir      = str(Path.home() / 'dev/dotfiles')
+state.core.dotfiles_dir      = str(Path.home() / '.dotfiles')
 state.core.check_dirs        = ['.config']
 state.core.channel_blacklist = ['.git']
 state.encryption             = {}

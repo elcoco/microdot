@@ -92,7 +92,8 @@ class Dotfile():
     
     def unlink(self):
         if not self.check_symlink():
-            raise MicrodotError(f"Dotfile is not linked: {self.name}")
+            logger.error(f"Dotfile is not linked: {self.name}")
+            return
 
         self.link_path.unlink()
         print(f"Unlinked: {self.link_path}")

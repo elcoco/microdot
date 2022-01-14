@@ -6,6 +6,7 @@
 # TODO when linking or unlinking all, filter file list
 # TODO add option to stop daemon
 # TODO when internet is gone, gitpush will just skip. when internet reconnects, the push is not triggered again
+# TODO when a linked encrypted file is updated when using watch, update decrypted file
 
 import logging
 import argparse
@@ -95,7 +96,10 @@ class App():
 
         elif state.do_watch:
             try:
-                watch_repo(state.core.dotfiles_dir)
+                watch_repo(state.core.dotfiles_dir,
+                           state.git.pull_interval,
+                           state.git.push_interval,
+                           state.notifications.error_interval)
             except MicrodotError as e:
                 logger.error(e)
                 return
@@ -111,7 +115,6 @@ class App():
             gitignore.add(dotfile.channel.name / dotfile.name)
 
         gitignore.write()
-
 
 
 if __name__ == "__main__":

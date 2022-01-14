@@ -4,13 +4,14 @@ import time
 from git import Repo
 import git
 import threading
+from dataclasses import dataclass
+from enum import Enum
+from subprocess import Popen
+from pathlib import Path
+from typing import ClassVar
 
 from core import lock
 from core.exceptions import MicrodotError
-
-# inotify
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler, PatternMatchingEventHandler
 
 logger = logging.getLogger("microdot")
 
@@ -18,39 +19,128 @@ logger = logging.getLogger("microdot")
 class GitException(Exception):
     pass
 
-class Git():
-    def __init__(self):
-        self._head = None
+class MsgType(Enum):
+    ERROR = 0
+    INFO = 1
 
+@dataclass
+class Message():
+    """ Message can be returned by Git() """
+    sender: str
+    summary: str
+    body: str = ""
+    urgency: str = "normal"
+    messages: ClassVar[list] = []
+    time: int = 20000
+
+    def __post_init__(self):
+        self.dt = datetime.datetime.utcnow()
+
+    def is_error(self):
+        return self.urgency == "critical"
+
+    def check_skip(self, seconds):
+        """ Skip message under some conditions """
+        if not self.is_error():
+            return False
+
+        for m in reversed(self.messages):
+            if self.sender == m.sender:
+                break
+        else:
+            return False
+
+        if not m.is_error():
+            return False
+
+        if (self.dt - m.dt).total_seconds() < seconds:
+            return True
+
+    def notify(self, error_interval=None):
+        if error_interval and self.check_skip(error_interval):
+            return
+
+        self.messages.append(self)
+
+        Popen(["notify-send",
+               "--app-name=microdot",
+               f"--expire-time={self.time}",
+               f"--urgency={self.urgency}",
+               self.summary,
+               self.body])
+
+class Git():
+    """ Git provides all methods to manage a git repository (commit, push, pull etc...)"""
     def git_init(self, path):
         try:
             self._repo = Repo(path)
         except git.exc.InvalidGitRepositoryError as e:
             raise GitException("Invalid Git repository")
 
+    def list_paths(self, root_tree, path=Path(".")):
+        for blob in root_tree.blobs:
+            yield path / blob.name
+        for tree in root_tree.trees:
+            yield from self.list_paths(tree, path / tree.name)
+
+    def get_line(self, item):
+        match item.change_type:
+            case 'A':
+                msg = f"deleted: {item.a_path}"
+            case 'D':
+                msg = f"new: {item.a_path}"
+            case 'M':
+                msg = f"modified: {item.a_path}"
+            case 'R':
+                msg = f"renamed: {item.a_path} -> {item.b_path}"
+            case _:
+                msg = "type {item.change_type}: {item.a_path}"
+
+        return msg
+
     def commit(self):
         # add all untracked files and all changes
         self._repo.git.add(all=True)
 
-        if (staged := self._repo.index.diff("HEAD")):
+        staged = [self.get_line(x) for x in self._repo.index.diff("HEAD")]
+
+        if (diff := self._repo.index.diff("HEAD")):
             commit = self._repo.index.commit("test commit")
-            logger.info(f"Committing {len(staged)} changes: {commit}")
-            return commit
+            logger.info(f"Committing {len(diff)} changes: {commit}")
+            return staged
+
+    def has_pending_commits(self):
+        branch  = self._repo.active_branch
+        commits = list(self._repo.iter_commits(f"{branch}@{{u}}..{branch}"))
+        return commits
 
     def push(self):
-        origin = self._repo.remote(name='origin')
+        origin  = self._repo.remote(name='origin')
 
+        if not (commits := self.has_pending_commits()):
+            return
+
+        logger.info(f"Pushing {len(commits)} commit(s)")
         try:
-            pushed = origin.push()
-            if len(pushed):
-                logger.info(f"Pushed changes, {pushed} :: {len(pushed)}")
-                return pushed
-            else:
-                logger.error("Failed to push changes")
-
+            info = origin.push()[0]
         except git.exc.GitCommandError as e:
-            logger.error("Failed to push changes.")
             logger.error(e)
+            return Message("push", "Failed to push changes", e.stderr.strip(), urgency="critical")
+
+        if info.flags & info.ERROR:
+            if info.flags & info.REJECTED:
+                msg = "Push is rejected"
+            elif info.flags & info.REMOTE_REJECTED:
+                msg = "Push is remote rejected"
+            elif info.flags & info.REMOTE_FAILURE:
+                msg = "Push failed remote"
+            else:
+                msg = "Push failed"
+            logger.error(msg)
+            return Message("push", msg, urgency="critical")
+
+        logger.info(f"Push done: {info.summary.strip()}")
+        return Message("push", f"Pushed {len(commits)} commit(s)")
 
     def pull(self):
         prev_head = self._repo.head.commit
@@ -60,59 +150,16 @@ class Git():
 
             if prev_head != self._repo.head.commit:
                 logger.info(f"Pulled changes, {pulled}")
+                return Message("pull", f"Pulled changes, {pulled}")
 
         except git.exc.GitCommandError as e:
-            logger.error("Failed to pull changes.")
-            logger.error(e)
-
-
-class GitPushEventHandler(FileSystemEventHandler, Git):
-    def __init__(self, git_path):
-        super().__init__()
-        logger.debug("Starting GitPushEventHandler")
-
-        # To not get double events, we pause during processing and check time inbetween events
-        self.t_last = datetime.datetime.now()
-        self.paused = False
-
-        try:
-            self.git_init(git_path)
-        except GitException as e:
-            self.error = e
-            self.paused = True
-
-
-        self._git_path = git_path
-
-        # holds exception in case of error
-        self.error = None
-
-        # this will trigger an initial push
-        self.pending_push = True
-
-    def on_modified(self, event):
-        if '.git' in event.src_path:
-            return
-
-        if self.paused:
-            # TODO if a change is made while paused, the changes go unpushed
-            return
-
-        if (datetime.datetime.now() - self.t_last) > datetime.timedelta(seconds=1):
-            self.paused = True
-
-            with lock:
-                logger.info(f"Event detected in {self._git_path}")
-
-                if self.commit():
-                    self.pending_push = not self.push()
-
-            self.paused = False
-            self.t_last = datetime.datetime.now()
+            logger.error("Failed to pull changes")
+            logger.error(e.stderr.strip())
+            return Message("pull", "Failed to pull changes", e.stderr.strip(), urgency="critical")
 
 
 class GitPullThread(threading.Thread, Git):
-    def __init__(self, git_path, lock, interval):
+    def __init__(self, git_path, lock, interval, error_interval):
         super().__init__()
 
         try:
@@ -121,60 +168,73 @@ class GitPullThread(threading.Thread, Git):
             self.error = e
             self.stop()
 
-        self.stopped = False
+        self._stopped = False
         self._lock = lock
         self._interval = interval
         self._git_path = git_path
+        self._t_last = datetime.datetime.utcnow()
         self.error = None
+        self._error_interval = error_interval
 
     def stop(self):
-        self.stopped = True
+        self._stopped = True
+
+    def non_blocking_sleep(self, interval):
+        while (datetime.datetime.utcnow() - self._t_last).total_seconds() < interval:
+            if self._stopped:
+                break
+            time.sleep(1)
+        self._t_last = datetime.datetime.utcnow()
 
     def run(self):
         logger.debug("Starting GitPullThread thread")
 
-        while not self.stopped:
+        while not self._stopped:
             with self._lock:
                 logger.info(f"Polling remote origin")
-                self.pull()
+                if (msg := self.pull()):
+                    msg.notify(error_interval=self._error_interval)
 
-            time.sleep(self._interval)
+            self.non_blocking_sleep(self._interval)
 
 
-def at_exit(threads):
-    logger.debug("Stopping GitPushEventHandler")
+def at_exit(thread):
     logger.debug("Stopping GitPullThread")
-    for thread in threads:
-        thread.stop()
-        thread.join()
+    thread.stop()
+    thread.join()
 
-def watch_repo(path, pull_interval=10):
+def watch_repo(path, pull_interval=10, push_interval=3, error_interval=30):
+    # start with clean state
     if lock.is_locked():
         lock.release_lock()
 
-    # local filesystem watcher, pushes on change
-    event_handler = GitPushEventHandler(path)
-    observer = Observer()
-    observer.schedule(event_handler, path, recursive=True)
-    observer.start()
+    try:
+        g = Git()
+        g.git_init(path)
+    except GitException as e:
+        raise MicrodotError(e)
 
     # remote repository watcher, pulls on change
-    pull_thread = GitPullThread(path, lock, pull_interval)
+    pull_thread = GitPullThread(path, lock, pull_interval, error_interval)
     pull_thread.start()
 
     try:
         while True:
-            if event_handler.error != None:
-                at_exit([observer, pull_thread])
-                raise MicrodotError(event_handler.error)
+            # check pull thread for errors and raise them outside of thread
             if pull_thread.error != None:
-                at_exit([observer, pull_thread])
+                at_exit(pull_thread)
                 raise MicrodotError(pull_thread.error)
-            if event_handler.pending_push:
-                logger.info("Retrying pending push")
-                event_handler.commit()
-                event_handler.pending_push = not event_handler.push()
 
-            time.sleep(1)
+            with lock:
+                staged = g.commit()
+
+                if (msg := g.push()):
+                    if staged:
+                        msg.body = '\n'.join(staged)
+
+                    msg.notify(error_interval=error_interval)
+
+            time.sleep(push_interval)
+
     except KeyboardInterrupt:
-        at_exit([observer, pull_thread])
+        at_exit(pull_thread)

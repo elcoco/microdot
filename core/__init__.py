@@ -65,8 +65,10 @@ state.colors.channel_name    = 'magenta'
 state.colors.linked          = 'green'
 state.colors.unlinked        = 'default'
 state.git                    = {}
-state.git.remote_url         = ''
 state.git.pull_interval      = 30
+state.git.push_interval      = 3
+state.notifications          = {}
+state.notifications.error_interval = 60
 
 if not state.configfile_exists():
     state.write(commented=False)

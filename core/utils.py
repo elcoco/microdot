@@ -8,13 +8,15 @@ logger = logging.getLogger("microdot")
 class Lock():
     """ Does lock things """
     def __init__(self, path):
-        self._locked = False
         self._holder = None
         self._debugging = False
         self._path = Path(path)
 
     def __enter__(self):
-        class_name = inspect.stack()[1][0].f_locals['self'].__class__.__name__
+        try:
+            class_name = inspect.stack()[1][0].f_locals['self'].__class__.__name__
+        except KeyError:
+            class_name = "None"
         method_name = inspect.stack()[1][3]
         caller = f"{class_name}.{method_name}"
         self.wait_for_lock(caller)
@@ -29,6 +31,9 @@ class Lock():
         self._path.write_text(self._holder)
 
     def release_lock(self):
+        if not self._path.exists():
+            logger.error("Lock file is missing")
+            return
         self._path.unlink()
 
     def set_debugging(self, state):
@@ -42,8 +47,6 @@ class Lock():
 
         self._holder = caller
         self.do_lock()
-
-
 
 
 def colorize(string, color):
@@ -73,3 +76,4 @@ def confirm(msg, assume_yes=False):
         return True
     if input(msg + ' [y/N] ').lower() == 'y':
         return True
+

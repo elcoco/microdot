@@ -76,4 +76,3 @@ def confirm(msg, assume_yes=False):
         return True
     if input(msg + ' [y/N] ').lower() == 'y':
         return True
-

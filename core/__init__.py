@@ -7,7 +7,6 @@ from core.utils import Lock
 from cryptography.fernet import Fernet
 
 
-
 class CustomFormatter(logging.Formatter):
     """Logging Formatter to add colors and count warning / errors"""
 

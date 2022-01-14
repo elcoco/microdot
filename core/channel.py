@@ -1,4 +1,3 @@
-
 import logging
 from pathlib import Path
 import shutil
@@ -16,7 +15,6 @@ except ImportError as e:
     sys.exit(1)
 
 logger = logging.getLogger("microdot")
-
 
 """
     You can add a new encrypted file with: $ md --init file.txt -e
@@ -44,7 +42,6 @@ logger = logging.getLogger("microdot")
     When the repository is updated, the linked encrypted files need to be decrypted by using: $ md --update
     We can automate this by managing the GIT repo for the user, but this will add more complexity.
 """
-
 
 class Dotfile():
     def __init__(self, path, channel):
@@ -271,7 +268,6 @@ class Channel():
         #path.replace(dotfile.path)
         #dotfile.link()
         return dotfile
-
 
 
 def get_channels(state):

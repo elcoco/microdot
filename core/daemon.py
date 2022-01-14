@@ -19,9 +19,6 @@ logger = logging.getLogger("microdot")
 class GitException(Exception):
     pass
 
-class MsgType(Enum):
-    ERROR = 0
-    INFO = 1
 
 @dataclass
 class Message():
@@ -69,9 +66,10 @@ class Message():
                self.summary,
                self.body])
 
+
 class Git():
     """ Git provides all methods to manage a git repository (commit, push, pull etc...)"""
-    def git_init(self, path):
+    def __init__(self, path):
         try:
             self._repo = Repo(path)
         except git.exc.InvalidGitRepositoryError as e:
@@ -95,7 +93,6 @@ class Git():
                 msg = f"renamed: {item.a_path} -> {item.b_path}"
             case _:
                 msg = "type {item.change_type}: {item.a_path}"
-
         return msg
 
     def commit(self):
@@ -160,10 +157,10 @@ class Git():
 
 class GitPullThread(threading.Thread, Git):
     def __init__(self, git_path, lock, interval, error_interval):
-        super().__init__()
-
+        logger.debug("Starting GitPullThread thread")
+        threading.Thread.__init__(self)
         try:
-            self.git_init(git_path)
+            Git.__init__(self, git_path)
         except GitException as e:
             self.error = e
             self.stop()
@@ -173,13 +170,16 @@ class GitPullThread(threading.Thread, Git):
         self._interval = interval
         self._git_path = git_path
         self._t_last = datetime.datetime.utcnow()
-        self.error = None
         self._error_interval = error_interval
+
+        # contains error message that will be raised outside of thread
+        self.error = None
 
     def stop(self):
         self._stopped = True
 
     def non_blocking_sleep(self, interval):
+        """ Don't block thread stop/joins """
         while (datetime.datetime.utcnow() - self._t_last).total_seconds() < interval:
             if self._stopped:
                 break
@@ -187,14 +187,11 @@ class GitPullThread(threading.Thread, Git):
         self._t_last = datetime.datetime.utcnow()
 
     def run(self):
-        logger.debug("Starting GitPullThread thread")
-
         while not self._stopped:
             with self._lock:
                 logger.info(f"Polling remote origin")
                 if (msg := self.pull()):
                     msg.notify(error_interval=self._error_interval)
-
             self.non_blocking_sleep(self._interval)
 
 
@@ -209,8 +206,7 @@ def watch_repo(path, pull_interval=10, push_interval=3, error_interval=30):
         lock.release_lock()
 
     try:
-        g = Git()
-        g.git_init(path)
+        g = Git(path)
     except GitException as e:
         raise MicrodotError(e)
 

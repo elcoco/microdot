@@ -3,6 +3,7 @@ from pathlib import Path
 import shutil
 import hashlib
 import tarfile
+import tempfile
 
 from core.exceptions import MicrodotError
 from core import gitignore
@@ -20,6 +21,9 @@ except ImportError as e:
 logger = logging.getLogger("microdot")
 
 BUF_SIZE = 65536
+ENCRYPTED_DIR_SUFFIX  = '.dir_encrypted'
+ENCRYPTED_FILE_SUFFIX = '.encrypted'
+TMP_FILE_PATH = '/tmp/microdot.tmp.tar'
 
 """
     You can add a new encrypted file with: $ md --init file.txt -e
@@ -48,7 +52,7 @@ BUF_SIZE = 65536
     We can automate this by managing the GIT repo for the user, but this will add more complexity.
 """
 
-class Dotfile():
+class DotFile():
     def __init__(self, path, channel):
         self.channel = channel
         self.path = path
@@ -115,22 +119,21 @@ class Dotfile():
 
 
 # TODO Directory encrypted files should have different suffix to be able to differentiate
-class DotfileEncryptedBaseClass(Dotfile):
+class DotFileEncryptedBaseClass(DotFile):
+    """ Baseclass for all encrypted files/directories """
     def __init__(self, path, channel, key):
         self.channel = channel
-        self.encrypted_path = path.with_suffix(path.suffix + '.encrypted')
         self.path = path
         self.name = self.path.relative_to(channel)
         self.link_path = Path.home() / self.name
         self.is_encrypted = True
         self._key = key
-        self._tmp_file = Path('/tmp/microdot.tmp.tar')
 
     def is_file(self):
-        return self.encrypted_path.is_file()
+        return self.encrypted_path.suffix == ENCRYPTED_FILE_SUFFIX
 
     def is_dir(self):
-        return self.encrypted_path.suffix == '.tar.encrypted'
+        return self.encrypted_path.suffix == ENCRYPTED_DIR_SUFFIX
         #return self.encrypted_path.is_dir()
 
     def encrypt(self, src, key):
@@ -138,30 +141,18 @@ class DotfileEncryptedBaseClass(Dotfile):
         if self.encrypted_path.exists():
             raise MicrodotError(f"Encrypted file exists in channel: {self.encrypted_path}")
 
-        # if source is a directory, first create tar archive
-        if src.is_dir():
-            logger.info("Encrypting directory")
-            with tarfile.open(self._tmp_file, 'w') as f:
-                f.add(src)
-            src = self._tmp_file
-
         fernet = Fernet(key)
         encrypted = fernet.encrypt(src.read_bytes())
         self.encrypted_path.write_bytes(encrypted)
-
-        if self._tmp_file == src:
-            self._tmp_file.unlink()
-
         print(f"Encrypted: {src} -> {self.encrypted_path}")
 
-    def decrypt(self):
+    def decrypt(self, dest=None):
         """ Do some decryption here and write to dest path """
-        if self.path.exists():
-            self.path.unlink()
+        if dest == None:
+            dest = self.path
 
-        if self.path.endswith('tar.encrypted'):
-            logger.info("Decrypting directory")
-
+        if dest.exists():
+            dest.unlink()
 
         try:
             fernet = Fernet(self._key)
@@ -169,18 +160,20 @@ class DotfileEncryptedBaseClass(Dotfile):
         except cryptography.fernet.InvalidToken:
             raise MicrodotError(f"Failed to decrypt {self.encrypted_path}, invalid key.")
 
-        self.path.write_bytes(decrypted)
-        logger.info(f"Decrypted {self.encrypted_path} -> {self.path}")
+        dest.write_bytes(decrypted)
+        logger.info(f"Decrypted {self.encrypted_path} -> {dest}")
 
     def link(self, force=False):
+        if self.link_path.is_symlink():
+            raise MicrodotError(f"Dotfile already linked: {self.link_path}")
         self.decrypt()
-        Dotfile.link(self, force=force)
+        DotFile.link(self, force=force)
 
-    def unlink(self):
-        Dotfile.unlink(self)
-        #gitignore.remove(self.channel.name / self.name)
-        logger.info(f"Removing decrypted file: {self.path}")
-        self.path.unlink()
+
+class DotFileEncrypted(DotFileEncryptedBaseClass):
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.encrypted_path = self.path.parent / (self.path.name + ENCRYPTED_FILE_SUFFIX)
 
     def init(self, src):
         """ Move source path to dotfile location """
@@ -189,15 +182,69 @@ class DotfileEncryptedBaseClass(Dotfile):
         logger.info(f"Removed original file: {src}")
         self.link()
 
+    def unlink(self):
+        if not DotFile.unlink(self):
+            return
+        logger.info(f"Removing decrypted file: {self.path}")
+        self.path.unlink()
 
-class DotfileEncrypted(DotfileEncryptedBaseClass):
+
+class DotDirEncrypted(DotFileEncryptedBaseClass):
     def __init__(self, *args):
         super().__init__(*args)
+        self.encrypted_path = self.path.parent / (self.path.name + ENCRYPTED_DIR_SUFFIX)
 
-class DotdirEncrypted(DotfileEncryptedBaseClass):
-    def __init__(self, *args):
-        super().__init__(*args)
+    def encrypt(self, src, key):
+        # if source is a directory, first create tar archive
+        tmp_file = Path(tempfile.mktemp())
 
+        if src.is_dir():
+            logger.info("Encrypting directory")
+            with tarfile.open(tmp_file, 'w') as f:
+                f.add(src)
+            src = tmp_file
+
+        DotFileEncryptedBaseClass.encrypt(self, src, key)
+        tmp_file.unlink()
+
+    def decrypt(self):
+        tmp_dir = Path(tempfile.mkdtemp())
+        tmp_file = Path(tempfile.mktemp())
+
+        DotFileEncryptedBaseClass.decrypt(self, tmp_file)
+
+        logger.debug(f"using tmp dir:  {tmp_dir}")
+        logger.debug(f"using tmp file: {tmp_file}")
+
+        logger.debug(f"Extracting: {self.encrypted_path} -> {tmp_dir}")
+        with tarfile.open(tmp_file, 'r') as tar:
+            tar.extractall(tmp_dir)
+
+
+        if self.path.exists():
+            logger.debug(f"Removing dir: {self.path}")
+            shutil.rmtree(self.path, ignore_errors=False, onerror=None)
+
+        # cant use pathlib's replace because files need to be on same filesystem
+        logger.debug(f"Moving: {tmp_dir} -> {self.path}")
+        shutil.move((tmp_dir / self.name), self.path)
+
+
+        logger.debug(f"Removing tmp file: {tmp_file}")
+        tmp_file.unlink()
+
+    def init(self, src):
+        """ Move source path to dotfile location """
+        self.encrypt(src, self._key)
+        shutil.rmtree(src, ignore_errors=False, onerror=None)
+        logger.info(f"Removed original directory: {src}")
+        self.link()
+
+    def unlink(self):
+        if not DotFile.unlink(self):
+            return
+        logger.info(f"Removing decrypted dir: {self.path}")
+        shutil.rmtree(self.path, ignore_errors=False, onerror=None)
 
 class Channel():
     def __init__(self, path, state):
@@ -210,10 +257,13 @@ class Channel():
         self._colors = state.colors
 
     def create_obj(self, path):
-        """ Create a brand new Dotfile object """
-        if path.suffix == '.encrypted':
-            return DotfileEncrypted(path.with_suffix(''), self._path, self._key)
-        return Dotfile(path, self._path)
+        """ Create a brand new DotFile object """
+        
+        if path.suffix == ENCRYPTED_FILE_SUFFIX:
+            return DotFileEncrypted(path.with_suffix(''), self._path, self._key)
+        elif path.suffix == ENCRYPTED_DIR_SUFFIX:
+            return DotDirEncrypted(path.with_suffix(''), self._path, self._key)
+        return DotFile(path, self._path)
 
     def filter_decrypted(self, dotfiles):
         """ Check if there are decrypted paths in the list """
@@ -280,9 +330,14 @@ class Channel():
         src = self._path / path.absolute().relative_to(Path.home())
 
         if encrypted:
-            dotfile = DotfileEncrypted(src, self._path, self._key)
+            if path.is_file():
+                dotfile = DotFileEncrypted(src, self._path, self._key)
+            elif path.is_dir():
+                dotfile = DotDirEncrypted(src, self._path, self._key)
+            else:
+                raise MicrodotError(f"Don't know what to do with this path: {path}")
         else:
-            dotfile = Dotfile(src, self._path)
+            dotfile = DotFile(src, self._path)
 
         #dotfile = self.create_obj(src)
 

@@ -1,7 +1,6 @@
 import logging
 import datetime
 import time
-from git import Repo
 import git
 import threading
 from dataclasses import dataclass
@@ -11,7 +10,9 @@ from pathlib import Path
 from typing import ClassVar
 
 from core import lock
+from git import Repo
 from core.exceptions import MicrodotError
+from core.channel import update_encrypted_from_decrypted, update_decrypted_from_encrypted
 
 logger = logging.getLogger("microdot")
 
@@ -142,7 +143,7 @@ class Git():
 
 
 class GitPullThread(threading.Thread, Git):
-    def __init__(self, git_path, lock, interval, error_interval, cb_on_pull):
+    def __init__(self, git_path, lock, interval, error_interval):
         logger.debug("Starting GitPullThread thread")
         threading.Thread.__init__(self)
         try:
@@ -160,8 +161,6 @@ class GitPullThread(threading.Thread, Git):
 
         # contains error message that will be raised outside of thread
         self.error = None
-
-        self._callback = cb_on_pull
 
     def stop(self):
         self._stopped = True
@@ -204,7 +203,7 @@ def parse_diff(item):
             msg = "type {item.change_type}: {item.a_path}"
     return msg
 
-def watch_repo(path, callback=None, pull_interval=10, push_interval=3, error_interval=30):
+def watch_repo(path, pull_interval=10, push_interval=3, error_interval=30):
     # start with clean state
     if lock.is_locked():
         lock.release_lock()
@@ -215,7 +214,7 @@ def watch_repo(path, callback=None, pull_interval=10, push_interval=3, error_int
         raise MicrodotError(e)
 
     # remote repository watcher, pulls on change
-    pull_thread = GitPullThread(path, lock, pull_interval, error_interval, callback)
+    pull_thread = GitPullThread(path, lock, pull_interval, error_interval)
     pull_thread.start()
 
     try:
@@ -229,11 +228,17 @@ def watch_repo(path, callback=None, pull_interval=10, push_interval=3, error_int
                 if (staged := g.commit()):
                     pass
 
-                    ## run callback on succes to update the encrypted files
-                    #try:
-                    #    callback([Path(p.a_path) for p in staged if Path(p.a_path).suffix == '.encrypted'])
-                    #except MicrodotError as e:
-                    #    Message("decrypt", "Failed to decrypt", e, urgency='critical').notify()
+                    """
+                    Before committing we need to check if there have been changes in the unencrypted files/dirs
+                    These changes need to be moved into the encrypted files/dirs before commiting to repo
+
+                    Names of encrypted files/dirs need to have an MD5 hash in them.
+                    This hash can be compared to the hash of the unencrypted file/dir.
+                    """
+
+                # TODO callback should be passed as an argument
+                update_encrypted_from_decrypted()
+                # TODO also implement update_decrypted_from_encrypted
 
                 if (msg := g.push()):
 

@@ -26,7 +26,7 @@ from pathlib import Path
 
 from core.gitignore import Gitignore
 from core import state
-from core.channel import get_channels, get_channel, get_linked_encrypted_dotfiles, update_encrypted
+from core.channel import get_channels, get_channel, get_linked_encrypted_dotfiles
 from core.exceptions import MicrodotError
 from core.daemon import watch_repo
 
@@ -109,7 +109,6 @@ class App():
         elif state.do_watch:
             try:
                 watch_repo(state.core.dotfiles_dir,
-                           callback       = update_encrypted,
                            pull_interval  = state.git.pull_interval,
                            push_interval  = state.git.push_interval,
                            error_interval = state.notifications.error_interval)

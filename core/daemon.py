@@ -81,25 +81,11 @@ class Git():
         for tree in root_tree.trees:
             yield from self.list_paths(tree, path / tree.name)
 
-    def get_line(self, item):
-        match item.change_type:
-            case 'A':
-                msg = f"deleted: {item.a_path}"
-            case 'D':
-                msg = f"new: {item.a_path}"
-            case 'M':
-                msg = f"modified: {item.a_path}"
-            case 'R':
-                msg = f"renamed: {item.a_path} -> {item.b_path}"
-            case _:
-                msg = "type {item.change_type}: {item.a_path}"
-        return msg
-
     def commit(self):
         # add all untracked files and all changes
         self._repo.git.add(all=True)
 
-        staged = [self.get_line(x) for x in self._repo.index.diff("HEAD")]
+        staged = self._repo.index.diff("HEAD")
 
         if (diff := self._repo.index.diff("HEAD")):
             commit = self._repo.index.commit("test commit")
@@ -156,7 +142,7 @@ class Git():
 
 
 class GitPullThread(threading.Thread, Git):
-    def __init__(self, git_path, lock, interval, error_interval):
+    def __init__(self, git_path, lock, interval, error_interval, cb_on_pull):
         logger.debug("Starting GitPullThread thread")
         threading.Thread.__init__(self)
         try:
@@ -175,6 +161,8 @@ class GitPullThread(threading.Thread, Git):
         # contains error message that will be raised outside of thread
         self.error = None
 
+        self._callback = cb_on_pull
+
     def stop(self):
         self._stopped = True
 
@@ -192,6 +180,7 @@ class GitPullThread(threading.Thread, Git):
                 logger.info(f"Polling remote origin")
                 if (msg := self.pull()):
                     msg.notify(error_interval=self._error_interval)
+
             self.non_blocking_sleep(self._interval)
 
 
@@ -200,7 +189,22 @@ def at_exit(thread):
     thread.stop()
     thread.join()
 
-def watch_repo(path, pull_interval=10, push_interval=3, error_interval=30):
+def parse_diff(item):
+    """ Parse diff object and construct a message """
+    match item.change_type:
+        case 'A':
+            msg = f"deleted: {item.a_path}"
+        case 'D':
+            msg = f"new: {item.a_path}"
+        case 'M':
+            msg = f"modified: {item.a_path}"
+        case 'R':
+            msg = f"renamed: {item.a_path} -> {item.b_path}"
+        case _:
+            msg = "type {item.change_type}: {item.a_path}"
+    return msg
+
+def watch_repo(path, callback=None, pull_interval=10, push_interval=3, error_interval=30):
     # start with clean state
     if lock.is_locked():
         lock.release_lock()
@@ -211,7 +215,7 @@ def watch_repo(path, pull_interval=10, push_interval=3, error_interval=30):
         raise MicrodotError(e)
 
     # remote repository watcher, pulls on change
-    pull_thread = GitPullThread(path, lock, pull_interval, error_interval)
+    pull_thread = GitPullThread(path, lock, pull_interval, error_interval, callback)
     pull_thread.start()
 
     try:
@@ -222,11 +226,19 @@ def watch_repo(path, pull_interval=10, push_interval=3, error_interval=30):
                 raise MicrodotError(pull_thread.error)
 
             with lock:
-                staged = g.commit()
+                if (staged := g.commit()):
+                    pass
+
+                    ## run callback on succes to update the encrypted files
+                    #try:
+                    #    callback([Path(p.a_path) for p in staged if Path(p.a_path).suffix == '.encrypted'])
+                    #except MicrodotError as e:
+                    #    Message("decrypt", "Failed to decrypt", e, urgency='critical').notify()
 
                 if (msg := g.push()):
+
                     if staged:
-                        msg.body = '\n'.join(staged)
+                        msg.body = '\n'.join([parse_diff(l) for l in staged])
 
                     msg.notify(error_interval=error_interval)
 

@@ -9,13 +9,24 @@
 # TODO when a linked encrypted file is updated when using watch, update decrypted file
 # TODO when answered no when creating common channel, program crashes`
 
+# TODO when a decrypted file is edited it needs to sync with the encrypted file
+#      or changes get lost
+#      When linking/init encrypted file, a warning needs to display about non running daemons
+
+# TODO encryption only works for files now
+
+# TODO add encrypt option to --link switch so we can encrypt an already initialized file
+#      ask the user to remove file from git cache
+
+# TODO one way to solve dir encryption problem is to zip dir and then encrypt (tarfile std lib)
+
 import logging
 import argparse
 from pathlib import Path
 
 from core.gitignore import Gitignore
 from core import state
-from core.channel import get_channels, get_channel, get_linked_encrypted_dotfiles
+from core.channel import get_channels, get_channel, get_linked_encrypted_dotfiles, update_encrypted
 from core.exceptions import MicrodotError
 from core.daemon import watch_repo
 
@@ -57,7 +68,7 @@ class App():
             state.core.dotfiles_dir = Path(state.core.dotfiles_dir)
         
         # get or create channel
-        state.channel = get_channel(args.channel, state, assume_yes=state.do_assume_yes)
+        state.channel = get_channel(args.channel, state, create=True, assume_yes=state.do_assume_yes)
 
     def run(self):
         self.parse_args(state)
@@ -98,9 +109,10 @@ class App():
         elif state.do_watch:
             try:
                 watch_repo(state.core.dotfiles_dir,
-                           state.git.pull_interval,
-                           state.git.push_interval,
-                           state.notifications.error_interval)
+                           callback       = update_encrypted,
+                           pull_interval  = state.git.pull_interval,
+                           push_interval  = state.git.push_interval,
+                           error_interval = state.notifications.error_interval)
             except MicrodotError as e:
                 logger.error(e)
                 return

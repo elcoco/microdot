@@ -63,6 +63,7 @@ state.colors                 = {}
 state.colors.channel_name    = 'magenta'
 state.colors.linked          = 'green'
 state.colors.unlinked        = 'default'
+state.colors.encrypted       = 'cyan'
 state.git                    = {}
 state.git.pull_interval      = 30
 state.git.push_interval      = 3

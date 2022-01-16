@@ -82,29 +82,24 @@ class App():
         elif state.do_link:
             if not (dotfile := state.channel.get_dotfile(state.do_link)):
                 logger.error(f"Dotfile not found: {state.do_link}")
-                return
             try:
                 dotfile.link(state.do_force)
             except MicrodotError as e:
                 logger.error(e)
-                return
 
         elif state.do_unlink:
             if not (dotfile := state.channel.get_dotfile(state.do_unlink)):
                 logger.error(f"Dotfile not found: {state.do_unlink}")
-                return
             try:
                 dotfile.unlink()
             except MicrodotError as e:
                 logger.error(e)
-                return
 
         elif state.do_init:
             try:
                 state.channel.init(Path(state.do_init), encrypted=state.do_encrypt)
             except MicrodotError as e:
                 logger.error(e)
-                return
 
         elif state.do_watch:
             try:
@@ -114,7 +109,6 @@ class App():
                            error_interval = state.notifications.error_interval)
             except MicrodotError as e:
                 logger.error(e)
-                return
 
         else:
             for state.channel in get_channels(state):

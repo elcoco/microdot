@@ -20,9 +20,6 @@ except ImportError as e:
 
 logger = logging.getLogger("microdot")
 
-BUF_SIZE = 65536
-ENCRYPTED_DIR_SUFFIX  = '.dir_encrypted'
-ENCRYPTED_FILE_SUFFIX = '.encrypted'
 ENCRYPTED_DIR_FORMAT  = "{name}#{md5}#dir#encrypted"
 ENCRYPTED_FILE_FORMAT  = "{name}#{md5}#encrypted"
 TMP_FILE_PATH = '/tmp/microdot.tmp.tar'
@@ -115,21 +112,16 @@ class DotFile():
         self.link()
 
 
-
-# TODO Directory encrypted files should have different suffix to be able to differentiate
 class DotFileEncryptedBaseClass(DotFile):
     """ Baseclass for all encrypted files/directories """
     def __init__(self, path, channel, key):
-        # split path.hash.suffix
-        # add hash to filenames
-        # format: hash_file.name.encrypted
+        # farse filename
         try:
             name, self.hash, ftype, _ = path.name.split('#')
             self.path = (path.parent / name)
             self.encrypted_path = path
             self.ftype = "DIR"
         except ValueError:
-
             try:
                 name, self.hash, _ = path.name.split('#')
                 self.path = (path.parent / name)
@@ -338,6 +330,7 @@ class DotDirEncrypted(DotFileEncryptedBaseClass):
             return
         logger.info(f"Unlink: removing decrypted dir: {self.path}")
         shutil.rmtree(self.path, ignore_errors=False, onerror=None)
+        
 
 class Channel():
     def __init__(self, path, state):
@@ -394,10 +387,10 @@ class Channel():
         for item in items:
             color = self._colors.linked if item.check_symlink() else self._colors.unlinked
 
-            if item.is_dir():
-                print(colorize(f"[D] {item.name}", color))
-            elif item.is_encrypted:
+            if item.is_encrypted:
                 print(colorize(f"[E] {item.name}", color))
+            elif item.is_dir():
+                print(colorize(f"[D] {item.name}", color))
             else:
                 print(colorize(f"[F] {item.name}", color))
 

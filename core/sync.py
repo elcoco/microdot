@@ -25,11 +25,11 @@ class StatusList():
         self._path.write_text('\n'.join(self._list))
 
     def add(self, dotfile):
-        logger.debug(f"SYNC: adding: {dotfile.encrypted_path.name}")
+        logger.debug(f"STATUS: adding: {dotfile.encrypted_path.name}")
         self._list.append(str(dotfile.encrypted_path.name))
 
     def remove(self, dotfile):
-        logger.debug(f"SYNC: removing: {dotfile.encrypted_path.name}")
+        logger.debug(f"STATUS: removing: {dotfile.encrypted_path.name}")
         self._list.remove(str(dotfile.encrypted_path.name))
 
     def solve(self, a=None, b=None):

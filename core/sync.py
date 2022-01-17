@@ -57,7 +57,7 @@ class StatusList():
                 if path.exists():
                     logger.info(f"Removing {path}")
                     path.unlink()
-                    self.remove(encrypted_path)
+                self.remove(encrypted_path)
         self.write()
 
     def solve(self, a=None, b=None):

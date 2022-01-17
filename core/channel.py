@@ -77,7 +77,7 @@ class DotFile():
         link = self.link_path
 
         if link.exists() and force:
-            logger.info(f"Link path exists, using --force to overwrite: {link}")
+            #logger.info(f"Link path exists, using --force to overwrite: {link}")
             if link.is_file():
                 os.remove(link)
             elif link.is_symlink():
@@ -94,7 +94,7 @@ class DotFile():
             raise MicrodotError(f"Link exists: {link}")
 
         link.symlink_to(self.path)
-        logger.info(f"Linked: {link} -> {self.path}")
+        #logger.info(f"Linked: {link} -> {self.path}")
         return True
     
     def unlink(self):
@@ -103,7 +103,7 @@ class DotFile():
             return
 
         self.link_path.unlink()
-        print(f"Unlink: unlinked: {self.link_path}")
+        #print(f"Unlink: unlinked: {self.link_path}")
         return True
 
     def init(self, src):
@@ -165,7 +165,7 @@ class DotFileEncryptedBaseClass(DotFile):
             raise MicrodotError(f"Failed to decrypt {self.encrypted_path}, invalid key.")
 
         dest.write_bytes(decrypted)
-        logger.info(f"Decrypt: decrypted {self.encrypted_path} -> {dest}")
+        #logger.info(f"Decrypt: decrypted {self.encrypted_path} -> {dest}")
 
     def link(self, force=False):
         if self.link_path.is_symlink():

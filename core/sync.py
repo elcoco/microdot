@@ -16,7 +16,7 @@ class StatusList():
             self._list = []
 
     def in_list(self, dotfile):
-        return str(dotfile.encrypted_path.name) in self._list
+        return str(dotfile.encrypted_path.absolute()) in self._list
 
     def exists(self, item):
         return item != None

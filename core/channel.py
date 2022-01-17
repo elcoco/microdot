@@ -103,7 +103,7 @@ class DotFile():
             return
 
         self.link_path.unlink()
-        print(f"Unlinked: {self.link_path}")
+        print(f"Unlink: unlinked: {self.link_path}")
         return True
 
     def init(self, src):
@@ -197,13 +197,12 @@ class DotFileEncryptedBaseClass(DotFile):
     def is_changed(self):
         """ Checks current md5 against last md5 """
         
-        if self.hash != self.get_hash(self.path):
-            logger.info(50*'-')
-            logger.info(f"Is_changed: >>>>>> YES CHANGED")
-            logger.info(f"Is_changed: path:     {self.path}")
-            logger.info(f"Is_changed: old hash: {self.hash}")
-            logger.info(f"Is_changed: new hash: {self.get_hash(self.path)}")
-            logger.info(50*'-')
+        #if self.hash != self.get_hash(self.path):
+        #    logger.info(50*'-')
+        #    logger.info(f"Is_changed: path:     {self.path}")
+        #    logger.info(f"Is_changed: old hash: {self.hash}")
+        #    logger.info(f"Is_changed: new hash: {self.get_hash(self.path)}")
+        #    logger.info(50*'-')
         return self.hash != self.get_hash(self.path)
 
 

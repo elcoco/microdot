@@ -56,6 +56,7 @@ class StatusList():
         elif not self.in_list(a) and not self.exists(b):
             logger.debug(f"SYNC: A is new: {a_name}")
             self.add(a)
+            a.decrypt()
 
         elif self.in_list(a) and not self.exists(b):
             logger.debug("SYNC: We are in sync")
@@ -65,12 +66,14 @@ class StatusList():
             self.remove(a)
             self.add(b)
             a.encrypted_path.unlink()
+            b.decrypt()
 
         elif not self.in_list(a) and self.in_list(b):
             logger.debug(f"SYNC: A is newer: {a_name} < {b_name}")
             self.add(a)
             self.remove(b)
             b.encrypted_path.unlink()
+            a.decrypt()
 
         elif not self.in_list(a) and not self.in_list(b):
             # A and B are new

@@ -185,7 +185,8 @@ def sync(path, error_msg_interval):
         else:
             status_list.solve(dotfile[0])
 
-    dotfiles = [item for items in newlist for item in get_encrypted_dotfiles()]
+    dotfiles = get_encrypted_dotfiles()
+    dotfiles = sum(dotfiles, [])
     status_list.check_removed(dotfiles)
     print(50*'*')
 

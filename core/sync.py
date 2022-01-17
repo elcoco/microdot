@@ -140,52 +140,20 @@ class StatusList():
             return True
 
     def is_in_conflict(self, a, b):
-        return self.exists(a) and self.exists(b) and not self.in_list(a) and not self.in_list(b)
+        if self.exists(a) and self.exists(b) and not self.in_list(a) and not self.in_list(b):
+            self.solve(a, b)
 
 
     def solve(self, a=None, b=None):
-        """ Tries to solve a conflict. returns the dotfile that stays """
-        self.read_list()
+        """ Solve a conflict by choosing the local data and renaming the other file """
+        d_hash = a.get_hash(a.path)
 
-        try:
-            a_name = a.encrypted_path.name
-            b_name = b.encrypted_path.name
-        except AttributeError:
-            pass
-
-        if self.a_is_new(a, b):
-            logger.debug(f"SYNC: A is new: {a_name}")
-            self.add(a.encrypted_path)
-            if a.check_symlink():
-                a.decrypt()
-
-        elif self.is_in_sync(a, b):
-            logger.debug("SYNC: We are in sync")
-
-        elif self.a_is_newer(a, b):
-            logger.debug(f"SYNC: B is newer: {a_name} > {b_name}")
-            self.remove(a.encrypted_path)
-            self.add(b.encrypted_path)
-            a.encrypted_path.unlink()
-            if a.check_symlink():
-                b.decrypt()
-
-        elif self.b_is_newer(a, b):
-            logger.debug(f"SYNC: A is newer: {a_name} < {b_name}")
-            self.add(a.encrypted_path)
-            self.remove(b.encrypted_path)
-            b.encrypted_path.unlink()
-            if a.check_symlink():
-                a.decrypt()
-
-        elif is_in_conflict(a, b):
-            logger.error(f"SYNC: conflict: {a_name} <> {b_name}")
-
-        elif self.in_list(a) and self.in_list(b):
-            logger.error(f"SYNC: unreachable: both in list -> {a_name} and {b_name}")
-
+        # TODO attach hostname and date for easy identification
+        if d_hash == a.hash:
+            logger.info(f"Choosing A: {a.encrypted_path.name}")
+            b.encrypted_path.rename(b.encrypted_path.parent / (b.encrypted_path.name + '#CONFLICT'))
+        elif d_hash == b.hash:
+            logger.info(f"Choosing B: {b.encrypted_path.name}")
+            a.encrypted_path.rename(a.encrypted_path.parent / (a.encrypted_path.name + '#CONFLICT'))
         else:
-            logger.error(f"SYNC: unreachable: {a_name}, {b_name}")
-
-
-        self.write()
+            logger.error("Failed to find a resolution")

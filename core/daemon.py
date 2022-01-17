@@ -204,28 +204,13 @@ def sync(path, error_msg_interval):
         elif status_list.b_is_new(a, b):
             logger.debug(f"SYNC: B is new: {a_name}")
         elif status_list.is_in_sync(a, b):
-            logger.debug("SYNC: We are in sync")
+            logger.debug("SYNC: in sync")
         elif status_list.a_is_newer(a, b):
-            logger.debug(f"SYNC: B is newer: {a_name} > {b_name}")
+            logger.debug(f"SYNC: B is newer: {a_name} < {b_name}")
         elif status_list.b_is_newer(a, b):
-            logger.debug(f"SYNC: A is newer: {a_name} < {b_name}")
+            logger.debug(f"SYNC: A is newer: {a_name} > {b_name}")
         elif status_list.is_in_conflict(a, b):
             logger.error(f"SYNC: conflict: {a_name} <> {b_name}")
-            # choose local and rename other
-            # find local by comparing hash(unencrypted data) with hashed(encrypted_path)
-            d_hash = a.get_hash(a.path)
-            # TODO attach hostname and date for easy identification
-            if d_hash == a.hash:
-                logger.info(f"Choosing A: {a.encrypted_path.name}")
-                b.encrypted_path.rename(b.encrypted_path.parent / (b.encrypted_path.name + '#CONFLICT'))
-                update_encrypted_from_decrypted()
-            elif d_hash == b.hash:
-                logger.info(f"Choosing B: {b.encrypted_path.name}")
-                a.encrypted_path.rename(a.encrypted_path.parent / (a.encrypted_path.name + '#CONFLICT'))
-                update_encrypted_from_decrypted()
-            else:
-                logger.error("Failed to find a resolution")
-
         else:
             logger.error(f"SYNC: unexpected error: {a_name} - {b_name}")
 
@@ -235,15 +220,10 @@ def sync(path, error_msg_interval):
     # DONE: after file is deleted by remote, the decrypted file is left on the system
     #      and will start syncin as a normal file so we need to check the status list
     #      for entries with missing files and remove decrypted data if found
-    #dotfiles = get_encrypted_dotfiles()
     dotfiles = get_encrypted_dotfiles()
     dotfiles = sum(dotfiles, [])
     status_list.check_removed(dotfiles)
-    #status_list.check_removed(get_encrypted_dotfiles())
     print(50*'*')
-
-    # TODO in case of conflict, the next update one of the files is considered new
-
 
     logger.info(f"Pushing to remote origin")
     if (staged := g.commit()):
@@ -254,8 +234,6 @@ def sync(path, error_msg_interval):
             msg.body = '\n'.join([parse_diff(l) for l in staged])
 
         msg.notify(error_interval=error_msg_interval)
-
-    # TODO: end in a fully synchronised state, unencrypted_data==encrypted_data
 
 
 def watch_repo(path, pull_interval=10, push_interval=3, error_interval=30):

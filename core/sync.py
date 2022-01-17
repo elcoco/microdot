@@ -24,33 +24,41 @@ class StatusList():
     def write(self):
         self._path.write_text('\n'.join(self._list))
 
-    def add(self, dotfile):
-        name = dotfile.encrypted_path.name.split('#')[0]
+    def add(self, path):
+        name = path.name.split('#')[0]
         for item in self._list:
             # TODO better matching
             if f"{name}#" in item:
                 self._list.remove(item)
 
-        logger.debug(f"STATUS: adding: {dotfile.encrypted_path.name}")
-        self._list.append(str(dotfile.encrypted_path.name))
+        logger.debug(f"STATUS: adding: {path}")
+        self._list.append(str(path.absolute()))
 
-
-    def remove(self, dotfile):
-        logger.debug(f"STATUS: removing: {dotfile.encrypted_path.name}")
-        self._list.remove(str(dotfile.encrypted_path.name))
+    def remove(self, path):
+        logger.debug(f"STATUS: removing: {path}")
+        self._list.remove(str(path.absolute()))
 
     def check_removed(self, dotfiles):
-        for item in self._list:
-            name = item.split('#')[0]
+        self.read_list()
+
+        for path in [x.strip() for x in self._list]:
+            if not path:
+                continue
+
+            encrypted_path = Path(path)
+            name = encrypted_path.name.split('#')[0]
+            path = Path(path).parent / name
+
+            print(f"checking deletion: {path}, {encrypted_path.absolute()}")
             for df in dotfiles:
-                if name == df.name:
+                if path == df.path:
                     break
             else:
-                # TODO this works for files only, may want to abstract this
-                if df.path.exists():
-                    df.path.unlink()
-                    self.remove(df)
-                    logger.info(f"SYNC: {name} is deleted")
+                if path.exists():
+                    logger.info(f"Removing {path}")
+                    path.unlink()
+                    self.remove(encrypted_path)
+        self.write()
 
     def solve(self, a=None, b=None):
         """ Tries to solve a conflict.
@@ -68,7 +76,7 @@ class StatusList():
 
         elif not self.in_list(a) and not self.exists(b):
             logger.debug(f"SYNC: A is new: {a_name}")
-            self.add(a)
+            self.add(a.encrypted_path)
             a.decrypt()
 
         elif self.in_list(a) and not self.exists(b):
@@ -76,15 +84,15 @@ class StatusList():
 
         elif self.in_list(a) and not self.in_list(b):
             logger.debug(f"SYNC: B is newer: {a_name} > {b_name}")
-            self.remove(a)
-            self.add(b)
+            self.remove(a.encrypted_path)
+            self.add(b.encrypted_path)
             a.encrypted_path.unlink()
             b.decrypt()
 
         elif not self.in_list(a) and self.in_list(b):
             logger.debug(f"SYNC: A is newer: {a_name} < {b_name}")
-            self.add(a)
-            self.remove(b)
+            self.add(a.encrypted_path)
+            self.remove(b.encrypted_path)
             b.encrypted_path.unlink()
             a.decrypt()
 

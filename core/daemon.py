@@ -234,7 +234,10 @@ def sync(path, error_msg_interval):
     #      and will start syncin as a normal file so we need to check the status list
     #      for entries with missing files and remove decrypted data if found
     #dotfiles = get_encrypted_dotfiles()
-    status_list.check_removed(get_encrypted_dotfiles())
+    dotfiles = get_encrypted_dotfiles()
+    dotfiles = sum(dotfiles, [])
+    status_list.check_removed(dotfiles)
+    #status_list.check_removed(get_encrypted_dotfiles())
     print(50*'*')
 
     # TODO in case of conflict, the next update one of the files is considered new

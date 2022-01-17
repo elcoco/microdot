@@ -176,8 +176,7 @@ def sync(path, error_msg_interval):
 
     print(50*'*')
     # get double files and solve them
-    dotfiles = get_encrypted_dotfiles()
-    for dotfile in dotfiles:
+    for dotfile in get_encrypted_dotfiles():
         logger.debug(f"Checking {len(dotfile)} dotfiles")
         if len(dotfile) > 2:
             logger.error(f"More than 2 versions of: {dotfile[0].name} * {len(dotfile)}")
@@ -186,6 +185,7 @@ def sync(path, error_msg_interval):
         else:
             status_list.solve(dotfile[0])
 
+    dotfiles = [item for items in newlist for item in get_encrypted_dotfiles()]
     status_list.check_removed(dotfiles)
     print(50*'*')
 

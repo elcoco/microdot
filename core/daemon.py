@@ -186,6 +186,10 @@ def sync(path, error_msg_interval):
             status_list.solve(dotfile[0])
     print(50*'*')
 
+    # TODO: after file is deleted by remote, the decrypted file is left on the system
+    #      and will start syncin as a normal file so we need to check the status list
+    #      for entries with missing files and remove decrypted data if found
+
     logger.info(f"Pushing to remote origin")
     if (staged := g.commit()):
         pass

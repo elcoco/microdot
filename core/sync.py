@@ -39,6 +39,18 @@ class StatusList():
         logger.debug(f"STATUS: removing: {dotfile.encrypted_path.name}")
         self._list.remove(str(dotfile.encrypted_path.name))
 
+    def check_removed(self, dotfiles):
+        for item in self._list:
+            name = item.split('#')[0]
+            for df in dotfiles:
+                if name == df.name:
+                    break
+            else:
+                # TODO this works for files only, may want to abstract this
+                df.path.unlink()
+                self.remove(df)
+                logger.info(f"SYNC: {name} is deleted")
+
     def solve(self, a=None, b=None):
         """ Tries to solve a conflict.
             returns the dotfile that stays """

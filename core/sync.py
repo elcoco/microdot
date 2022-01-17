@@ -47,9 +47,10 @@ class StatusList():
                     break
             else:
                 # TODO this works for files only, may want to abstract this
-                df.path.unlink()
-                self.remove(df)
-                logger.info(f"SYNC: {name} is deleted")
+                if df.path.exists():
+                    df.path.unlink()
+                    self.remove(df)
+                    logger.info(f"SYNC: {name} is deleted")
 
     def solve(self, a=None, b=None):
         """ Tries to solve a conflict.

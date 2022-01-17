@@ -31,11 +31,11 @@ class StatusList():
             if f"{name}#" in item:
                 self._list.remove(item)
 
-        logger.debug(f"STATUS: adding: {path}")
+        logger.debug(f"STATUS: list_add: {path}")
         self._list.append(str(path.absolute()))
 
     def remove(self, path):
-        logger.debug(f"STATUS: removing from list: {path}")
+        logger.debug(f"STATUS: list_rm: {path}")
         self._list.remove(str(path.absolute()))
 
 
@@ -73,7 +73,6 @@ class StatusList():
                     logger.info(f"Removing {path}")
                     path.unlink()
 
-                logger.info(f"Removing {path} from list")
                 self.remove(encrypted_path)
 
         self.write()

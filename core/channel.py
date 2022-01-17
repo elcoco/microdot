@@ -225,7 +225,7 @@ class DotFileEncrypted(DotFileEncryptedBaseClass):
     def unlink(self):
         if not DotFile.unlink(self):
             return
-        logger.info(f"Unlink: removing decrypted file: {self.path}")
+        #logger.info(f"Unlink: removing decrypted file: {self.path}")
         self.path.unlink()
 
     def update(self):
@@ -239,13 +239,13 @@ class DotFileEncrypted(DotFileEncryptedBaseClass):
         md5 = self.get_hash(self.path)
         self.encrypted_path = self.path.parent / ENCRYPTED_FILE_FORMAT.format(name=self.name, md5=md5)
         self.encrypt(self.path, self._key, force=True)
-        logger.info(f"Update: updated: {self.name} -> {self.encrypted_path}")
+        #logger.info(f"Update: updated: {self.name} -> {self.encrypted_path}")
 
         self.unlink()
         old_encrypted_path.unlink()
         self.link()
 
-        logger.info(f"Update: updated: {self.name} -> {self.encrypted_path}")
+        #logger.info(f"Update: updated: {self.name} -> {self.encrypted_path}")
 
 
 class DotDirEncrypted(DotFileEncryptedBaseClass):
@@ -271,7 +271,7 @@ class DotDirEncrypted(DotFileEncryptedBaseClass):
         md5 = self.get_hash(self.path)
         self.encrypted_path = self.path.parent / ENCRYPTED_DIR_FORMAT.format(name=self.name, md5=md5)
 
-        logger.debug(f"Update: using path: {self.path}")
+        #logger.debug(f"Update: using path: {self.path}")
         tmp_file = self.get_tar(self.path)
         self.encrypt(tmp_file, self._key, force=True)
         tmp_file.unlink()
@@ -280,7 +280,7 @@ class DotDirEncrypted(DotFileEncryptedBaseClass):
         old_encrypted_path.unlink()
         self.link()
 
-        logger.info(f"Update: updated: {self.name} -> {self.encrypted_path}")
+        #logger.info(f"Update: updated: {self.name} -> {self.encrypted_path}")
 
     def decrypt(self):
         tmp_dir = Path(tempfile.mkdtemp())
@@ -288,20 +288,19 @@ class DotDirEncrypted(DotFileEncryptedBaseClass):
 
         DotFileEncryptedBaseClass.decrypt(self, tmp_file)
 
-        logger.debug(f"Decrypt: extracting: {tmp_file} -> {tmp_dir}")
+        #logger.debug(f"Decrypt: extracting: {tmp_file} -> {tmp_dir}")
         with tarfile.open(tmp_file, 'r') as tar:
             tar.extractall(tmp_dir)
 
         if self.path.exists():
-            logger.debug(f"Decrypt: removing dir: {self.path}")
+            #logger.debug(f"Decrypt: removing dir: {self.path}")
             shutil.rmtree(self.path, ignore_errors=False, onerror=None)
 
         # cant use pathlib's replace because files need to be on same filesystem
-        logger.debug(f"Decrypt: moving: {tmp_dir / self.name} -> {self.path}")
-        print(f"Decrypt: {tmp_dir/self.name}, exist: {(tmp_dir/self.name).is_dir()}")
+        #logger.debug(f"Decrypt: moving: {tmp_dir / self.name} -> {self.path}")
         shutil.move((tmp_dir / self.name), self.path)
 
-        logger.debug(f"Decrypt: removing tmp file: {tmp_file}")
+        #logger.debug(f"Decrypt: removing tmp file: {tmp_file}")
         tmp_file.unlink()
 
     def init(self, src):
@@ -309,20 +308,20 @@ class DotDirEncrypted(DotFileEncryptedBaseClass):
         md5 = self.get_hash(src)
         self.encrypted_path = self.path.parent / ENCRYPTED_DIR_FORMAT.format(name=self.name, md5=md5)
 
-        logger.debug(f"Init: using path: {src}")
+        #logger.debug(f"Init: using path: {src}")
 
         tmp_file = self.get_tar(src)
         self.encrypt(tmp_file, self._key)
         tmp_file.unlink()
 
         shutil.rmtree(src, ignore_errors=False, onerror=None)
-        logger.info(f"Init: removed original directory: {src}")
+        #logger.info(f"Init: removed original directory: {src}")
         self.link()
 
     def unlink(self):
         if not DotFile.unlink(self):
             return
-        logger.info(f"Unlink: removing decrypted dir: {self.path}")
+        #logger.info(f"Unlink: removing decrypted dir: {self.path}")
         shutil.rmtree(self.path, ignore_errors=False, onerror=None)
         
 

@@ -3,6 +3,7 @@ import logging
 
 from core.config import Config
 from core.utils import Lock
+from core.sync import StatusList
 
 from cryptography.fernet import Fernet
 
@@ -86,5 +87,8 @@ state.do_watch      = False
 state.do_encrypt    = False
 state.do_assume_yes = False
 state.do_force      = False
+state.do_sync       = False
 
 lock = Lock('/tmp/microdot.lock')
+
+status_list = StatusList()

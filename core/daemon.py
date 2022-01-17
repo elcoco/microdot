@@ -9,10 +9,10 @@ from subprocess import Popen
 from pathlib import Path
 from typing import ClassVar
 
-from core import lock
+from core import lock, status_list
 from git import Repo
 from core.exceptions import MicrodotError
-from core.channel import update_encrypted_from_decrypted, update_decrypted_from_encrypted
+from core.channel import update_encrypted_from_decrypted, update_decrypted_from_encrypted, get_encrypted_dotfiles
 
 logger = logging.getLogger("microdot")
 
@@ -141,48 +141,6 @@ class Git():
             logger.error(e.stderr.strip())
             return Message("pull", "Failed to pull changes", e.stderr.strip(), urgency="critical")
 
-
-class GitPullThread(threading.Thread, Git):
-    def __init__(self, git_path, lock, interval, error_interval):
-        logger.debug("Starting GitPullThread thread")
-        threading.Thread.__init__(self)
-        try:
-            Git.__init__(self, git_path)
-        except GitException as e:
-            self.error = e
-            self.stop()
-
-        self._stopped = False
-        self._lock = lock
-        self._interval = interval
-        self._git_path = git_path
-        self._t_last = datetime.datetime.utcnow()
-        self._error_interval = error_interval
-
-        # contains error message that will be raised outside of thread
-        self.error = None
-
-    def stop(self):
-        self._stopped = True
-
-    def non_blocking_sleep(self, interval):
-        """ Don't block thread stop/joins """
-        while (datetime.datetime.utcnow() - self._t_last).total_seconds() < interval:
-            if self._stopped:
-                break
-            time.sleep(1)
-        self._t_last = datetime.datetime.utcnow()
-
-    def run(self):
-        while not self._stopped:
-            with self._lock:
-                logger.info(f"Polling remote origin")
-                if (msg := self.pull()):
-                    msg.notify(error_interval=self._error_interval)
-
-            self.non_blocking_sleep(self._interval)
-
-
 def at_exit(thread):
     logger.debug("Stopping GitPullThread")
     thread.stop()
@@ -203,51 +161,56 @@ def parse_diff(item):
             msg = "type {item.change_type}: {item.a_path}"
     return msg
 
-def watch_repo(path, pull_interval=10, push_interval=3, error_interval=30):
-    # start with clean state
-    if lock.is_locked():
-        lock.release_lock()
+def sync(path, error_msg_interval):
+    # start in a fully synchronised state, unencrypted_data==encrypted_data
+    update_encrypted_from_decrypted()
 
     try:
         g = Git(path)
     except GitException as e:
         raise MicrodotError(e)
 
-    # remote repository watcher, pulls on change
-    pull_thread = GitPullThread(path, lock, pull_interval, error_interval)
-    pull_thread.start()
+    logger.info(f"Pulling remote origin")
+    if (msg := g.pull()):
+        msg.notify(error_interval=error_msg_interval)
+
+    print(50*'*')
+    # get double files and solve them
+    #dotfiles = get_encrypted_dotfiles()
+    for dotfile in get_encrypted_dotfiles():
+        if len(dotfile) > 2:
+            logger.error(f"More than 2 versions of: {dotfile[0].name} * {len(dotfile)}")
+        elif len(dotfile) == 2:
+            status_list.solve(dotfile[0], dotfile[1])
+        else:
+            status_list.solve(dotfile[0])
+    print(50*'*')
+
+    logger.info(f"Pushing to remote origin")
+    if (staged := g.commit()):
+        pass
+
+    if (msg := g.push()):
+        if staged:
+            msg.body = '\n'.join([parse_diff(l) for l in staged])
+
+        msg.notify(error_interval=error_msg_interval)
+
+    # TODO: end in a fully synchronised state, unencrypted_data==encrypted_data
+
+
+def watch_repo(path, pull_interval=10, push_interval=3, error_interval=30):
+    # start with clean state
+    push_interval = 5
+    if lock.is_locked():
+        lock.release_lock()
 
     try:
         while True:
-            # check pull thread for errors and raise them outside of thread
-            if pull_thread.error != None:
-                at_exit(pull_thread)
-                raise MicrodotError(pull_thread.error)
-
             with lock:
-                if (staged := g.commit()):
-                    pass
-
-                    """
-                    Before committing we need to check if there have been changes in the unencrypted files/dirs
-                    These changes need to be moved into the encrypted files/dirs before commiting to repo
-
-                    Names of encrypted files/dirs need to have an MD5 hash in them.
-                    This hash can be compared to the hash of the unencrypted file/dir.
-                    """
-
-                # TODO callback should be passed as an argument
-                update_encrypted_from_decrypted()
-                # TODO also implement update_decrypted_from_encrypted
-
-                if (msg := g.push()):
-
-                    if staged:
-                        msg.body = '\n'.join([parse_diff(l) for l in staged])
-
-                    msg.notify(error_interval=error_interval)
+                sync(path, error_interval)
 
             time.sleep(push_interval)
 
     except KeyboardInterrupt:
-        at_exit(pull_thread)
+        pass

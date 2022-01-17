@@ -28,7 +28,7 @@ from core.gitignore import Gitignore
 from core import state
 from core.channel import get_channels, get_channel, get_linked_encrypted_dotfiles
 from core.exceptions import MicrodotError
-from core.daemon import watch_repo
+from core.daemon import watch_repo, sync
 
 logger = logging.getLogger("microdot")
 
@@ -43,6 +43,7 @@ class App():
         parser.add_argument('-u', '--unlink',       help='unlink dotfile', metavar='DOT', default=None)
         parser.add_argument('-U', '--unlink-all',   help='unlink all dotfiles in channel', action='store_true')
         parser.add_argument('-i', '--init',         help='init dotfile', metavar='PATH', default=None)
+        parser.add_argument('-s', '--sync',         help='sync repo', action='store_true')
         parser.add_argument('-e', '--encrypt',      help='encrypt file', action='store_true')
         parser.add_argument('-w', '--watch',        help='start git watch daemon', action='store_true')
         parser.add_argument('-d', '--dotfiles-dir', help='dotfiles directory', metavar='DIR', default=None)
@@ -60,6 +61,7 @@ class App():
         state.do_assume_yes   = args.assume_yes
         state.do_force        = args.force
         state.do_watch        = args.watch
+        state.do_sync       = args.sync
 
         # find dotfiles directory
         if args.dotfiles_dir:
@@ -100,6 +102,9 @@ class App():
                 state.channel.init(Path(state.do_init), encrypted=state.do_encrypt)
             except MicrodotError as e:
                 logger.error(e)
+
+        elif state.do_sync:
+            sync(state.core.dotfiles_dir, state.notifications.error_interval)
 
         elif state.do_watch:
             try:

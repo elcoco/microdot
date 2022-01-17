@@ -482,6 +482,19 @@ def get_linked_encrypted_dotfiles(state, linked=True):
                 linked.append(dotfile)
     return linked
 
+def get_encrypted_dotfiles():
+    """ Return encrypted dotfiles, doubles are grouped by filename """
+    encrypted = []
+    for channel in get_channels(state):
+        for dotfile in channel.dotfiles:
+
+            if not dotfile.is_encrypted:
+                continue
+
+            encrypted.append([df for df in channel.dotfiles if df.name == dotfile.name])
+
+    return encrypted
+
 def update_encrypted_from_decrypted():
     for df in get_linked_encrypted_dotfiles(state):
         df.update()

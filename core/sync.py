@@ -27,7 +27,8 @@ class StatusList():
     def add(self, dotfile):
         name = dotfile.encrypted_path.name.split('#')[0]
         for item in self._list:
-            if name in item:
+            # TODO better matching
+            if f"{name}#" in item:
                 self._list.remove(item)
 
         logger.debug(f"STATUS: adding: {dotfile.encrypted_path.name}")

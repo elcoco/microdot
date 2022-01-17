@@ -39,7 +39,7 @@ class StatusList():
         self._list.remove(str(path.absolute()))
 
 
-    def check_removed(self, dotfiles):
+    def check_removed_old(self, dotfiles):
         """ Check if items from list don't have corresponding data on system.
             If so, this indicates a deletion """
         self.read_list()
@@ -67,6 +67,32 @@ class StatusList():
                     break
 
                 if path == a.path:
+                    break
+            else:
+                if path.exists():
+                    logger.info(f"Removing {path}")
+                    path.unlink()
+
+                self.remove(encrypted_path)
+
+        self.write()
+
+    def check_removed(self, dotfiles):
+        """ Check if items from list don't have corresponding data on system.
+            If so, this indicates a deletion """
+        self.read_list()
+
+        for path in [x.strip() for x in self._list]:
+            if not path:
+                continue
+
+            encrypted_path = Path(path)
+            name = encrypted_path.name.split('#')[0]
+            path = Path(path).parent / name
+
+            # see if status list entry has a corresponding file on disk
+            for dotfile in dotfiles:
+                if path == dotfile.path:
                     break
             else:
                 if path.exists():

@@ -163,17 +163,17 @@ def parse_diff(item):
 
 def sync(path, error_msg_interval):
     # start in a fully synchronised state, unencrypted_data==encrypted_data
-    #update_encrypted_from_decrypted()
+    update_encrypted_from_decrypted()
 
     #for df in get_linked_encrypted_dotfiles(state):
-    #    df.update()
-    for dotfile in get_encrypted_dotfiles(linked=True):
-        a = dotfile[0]
-        b = dotfile[1] if len(dotfile) > 1 else None
-        if status_list.is_in_conflict(a, b):
-            logger.debug("Skipping conflict")
-            continue
-        a.update()
+    ##    df.update()
+    #for dotfile in get_encrypted_dotfiles(linked=True):
+    #    a = dotfile[0]
+    #    b = dotfile[1] if len(dotfile) > 1 else None
+    #    if status_list.is_in_conflict(a, b):
+    #        logger.debug("Skipping conflict")
+    #        continue
+    #    a.update()
 
     try:
         g = Git(path)
@@ -214,9 +214,7 @@ def sync(path, error_msg_interval):
             # choose local and rename other
             # find local by comparing hash(unencrypted data) with hashed(encrypted_path)
             d_hash = a.get_hash(a.path)
-            logger.debug(f"data hash: {d_hash}")
-            logger.debug(f"a    hash: {a.hash}")
-            logger.debug(f"b    hash: {b.hash}")
+            # TODO attach hostname and date for easy identification
             if d_hash == a.hash:
                 logger.info(f"Choosing A: {a.encrypted_path.name}")
                 b.encrypted_path.rename(b.encrypted_path.parent / (b.encrypted_path.name + '#CONFLICT'))
@@ -235,8 +233,8 @@ def sync(path, error_msg_interval):
     # DONE: after file is deleted by remote, the decrypted file is left on the system
     #      and will start syncin as a normal file so we need to check the status list
     #      for entries with missing files and remove decrypted data if found
-    dotfiles = get_encrypted_dotfiles()
-    status_list.check_removed(dotfiles)
+    #dotfiles = get_encrypted_dotfiles()
+    status_list.check_removed(get_encrypted_dotfiles())
     print(50*'*')
 
     # TODO in case of conflict, the next update one of the files is considered new

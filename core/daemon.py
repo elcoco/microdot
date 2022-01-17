@@ -218,9 +218,11 @@ def sync(path, error_msg_interval):
             if d_hash == a.hash:
                 logger.info(f"Choosing A: {a.encrypted_path.name}")
                 b.encrypted_path.rename(b.encrypted_path.parent / (b.encrypted_path.name + '#CONFLICT'))
+                update_encrypted_from_decrypted()
             elif d_hash == b.hash:
                 logger.info(f"Choosing B: {b.encrypted_path.name}")
                 a.encrypted_path.rename(a.encrypted_path.parent / (a.encrypted_path.name + '#CONFLICT'))
+                update_encrypted_from_decrypted()
             else:
                 logger.error("Failed to find a resolution")
 

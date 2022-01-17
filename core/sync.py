@@ -18,16 +18,16 @@ class StatusList():
     def in_list(self, dotfile):
         return str(dotfile.encrypted_path.absolute()) in self._list
 
-    def exists(self, item):
-        return item != None
+    def exists(self, dotfile):
+        return dotfile != None
 
     def write(self):
         self._path.write_text('\n'.join(self._list))
 
     def add(self, path):
+        # TODO better matching
         name = path.name.split('#')[0]
         for item in self._list:
-            # TODO better matching
             if f"{name}#" in item:
                 self._list.remove(item)
 
@@ -35,11 +35,16 @@ class StatusList():
         self._list.append(str(path.absolute()))
 
     def remove(self, path):
-        logger.debug(f"STATUS: removing: {path}")
+        logger.debug(f"STATUS: removing from list: {path}")
         self._list.remove(str(path.absolute()))
 
+
     def check_removed(self, dotfiles):
+        """ Check if items from list don't have corresponding data on system.
+            If so, this indicates a deletion """
         self.read_list()
+
+
 
         for path in [x.strip() for x in self._list]:
             if not path:
@@ -49,9 +54,21 @@ class StatusList():
             name = encrypted_path.name.split('#')[0]
             path = Path(path).parent / name
 
-            print(f"checking deletion: {path}, {encrypted_path.absolute()}")
-            for df in dotfiles:
-                if path == df.path:
+            # see if status list entry has a corresponding file on disk
+            for dotfile in dotfiles:
+
+                a = dotfile[0]
+                b = dotfile[1] if len(dotfile) > 1 else None
+
+                if self.is_in_conflict(a, b):
+                    logger.debug(f"Not removing when in conflict!! {a} <> {b}")
+                    break
+
+                if self.exists(b):
+                    logger.error(f"Unexpected: {a} - {b}")
+                    break
+
+                if path == a.path:
                     break
             else:
                 if path.exists():
@@ -62,9 +79,45 @@ class StatusList():
                 self.remove(encrypted_path)
         self.write()
 
+    def a_is_new(self, a, b):
+        if not self.in_list(a) and not self.exists(b):
+            self.add(a.encrypted_path)
+            if a.check_symlink():
+                a.decrypt()
+            return True
+
+    def b_is_new(self, a, b):
+        if not self.in_list(b) and not self.exists(a):
+            pass
+
+    def is_in_sync(self, a, b):
+        return self.in_list(a) and not self.exists(b)
+
+    def a_is_newer(self, a, b):
+        if self.in_list(a) and not self.in_list(b):
+            self.remove(a.encrypted_path)
+            self.add(b.encrypted_path)
+            a.encrypted_path.unlink()
+            if a.check_symlink():
+                b.decrypt()
+            return True
+
+    def b_is_newer(self, a, b):
+        if not self.in_list(a) and self.in_list(b):
+            logger.debug(f"SYNC: A is newer: {a_name} < {b_name}")
+            self.add(a.encrypted_path)
+            self.remove(b.encrypted_path)
+            b.encrypted_path.unlink()
+            if a.check_symlink():
+                a.decrypt()
+            return True
+
+    def is_in_conflict(self, a, b):
+        return not self.in_list(a) and not self.in_list(b)
+
+
     def solve(self, a=None, b=None):
-        """ Tries to solve a conflict.
-            returns the dotfile that stays """
+        """ Tries to solve a conflict. returns the dotfile that stays """
         self.read_list()
 
         try:
@@ -73,19 +126,16 @@ class StatusList():
         except AttributeError:
             pass
 
-        if not self.exists(a) and not self.exists(b):
-            logger.error(f"SYNC: unreachable: both don't exist -> {a_name} and {b_name}")
-
-        elif not self.in_list(a) and not self.exists(b):
+        if self.a_is_new(a, b):
             logger.debug(f"SYNC: A is new: {a_name}")
             self.add(a.encrypted_path)
             if a.check_symlink():
                 a.decrypt()
 
-        elif self.in_list(a) and not self.exists(b):
+        elif self.is_in_sync(a, b):
             logger.debug("SYNC: We are in sync")
 
-        elif self.in_list(a) and not self.in_list(b):
+        elif self.a_is_newer(a, b):
             logger.debug(f"SYNC: B is newer: {a_name} > {b_name}")
             self.remove(a.encrypted_path)
             self.add(b.encrypted_path)
@@ -93,7 +143,7 @@ class StatusList():
             if a.check_symlink():
                 b.decrypt()
 
-        elif not self.in_list(a) and self.in_list(b):
+        elif self.b_is_newer(a, b):
             logger.debug(f"SYNC: A is newer: {a_name} < {b_name}")
             self.add(a.encrypted_path)
             self.remove(b.encrypted_path)
@@ -101,8 +151,7 @@ class StatusList():
             if a.check_symlink():
                 a.decrypt()
 
-        elif not self.in_list(a) and not self.in_list(b):
-            # A and B are new
+        elif is_in_conflict(a, b):
             logger.error(f"SYNC: conflict: {a_name} <> {b_name}")
 
         elif self.in_list(a) and self.in_list(b):

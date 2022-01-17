@@ -175,24 +175,45 @@ def sync(path, error_msg_interval):
         msg.notify(error_interval=error_msg_interval)
 
     print(50*'*')
-    # get double files and solve them
-    for dotfile in get_encrypted_dotfiles():
-        logger.debug(f"Checking {len(dotfile)} dotfiles")
-        if len(dotfile) > 2:
-            logger.error(f"More than 2 versions of: {dotfile[0].name} * {len(dotfile)}")
-        elif len(dotfile) == 2:
-            status_list.solve(dotfile[0], dotfile[1])
-        else:
-            status_list.solve(dotfile[0])
 
+    for dotfile in get_encrypted_dotfiles():
+        logger.debug(f"Checking {len(dotfile)} dotfile(s): {dotfile[0].name}")
+        a = dotfile[0]
+        b = dotfile[1] if len(dotfile) > 1 else None
+
+        try:
+            a_name = a.encrypted_path.name
+            b_name = b.encrypted_path.name
+        except AttributeError:
+            pass
+
+        status_list.read_list()
+
+        if status_list.a_is_new(a, b):
+            logger.debug(f"SYNC: A is new: {a_name}")
+        elif status_list.is_in_sync(a, b):
+            logger.debug("SYNC: We are in sync")
+        elif status_list.a_is_newer(a, b):
+            logger.debug(f"SYNC: B is newer: {a_name} > {b_name}")
+        elif status_list.b_is_newer(a, b):
+            logger.debug(f"SYNC: A is newer: {a_name} < {b_name}")
+        elif status_list.is_in_conflict(a, b):
+            logger.error(f"SYNC: conflict: {a_name} <> {b_name}")
+        else:
+            logger.error(f"SYNC: unexpected error: {a_name} - {b_name}")
+
+        status_list.write()
+        #status_list.solve(a, b)
+
+    # DONE: after file is deleted by remote, the decrypted file is left on the system
+    #      and will start syncin as a normal file so we need to check the status list
+    #      for entries with missing files and remove decrypted data if found
+    # TODO in case of conflict, this will start removing one of the files.
+    #dotfiles = sum(dotfiles, [])
     dotfiles = get_encrypted_dotfiles()
-    dotfiles = sum(dotfiles, [])
     status_list.check_removed(dotfiles)
     print(50*'*')
 
-    # TODO: after file is deleted by remote, the decrypted file is left on the system
-    #      and will start syncin as a normal file so we need to check the status list
-    #      for entries with missing files and remove decrypted data if found
 
     logger.info(f"Pushing to remote origin")
     if (staged := g.commit()):

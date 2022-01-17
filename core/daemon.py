@@ -211,6 +211,21 @@ def sync(path, error_msg_interval):
             logger.debug(f"SYNC: A is newer: {a_name} < {b_name}")
         elif status_list.is_in_conflict(a, b):
             logger.error(f"SYNC: conflict: {a_name} <> {b_name}")
+            # choose local and rename other
+            # find local by comparing hash(unencrypted data) with hashed(encrypted_path)
+            d_hash = a.get_hash(a.path)
+            logger.debug(f"data hash: {d_hash}")
+            logger.debug(f"a    hash: {a.hash}")
+            logger.debug(f"b    hash: {b.hash}")
+            if d_hash == a.hash:
+                logger.info(f"Choosing A: {a.encrypted_path.name}")
+                b.encrypted_path.rename(b.encrypted_path.parent / (b.encrypted_path.name + '#CONFLICT'))
+            elif d_hash == b.hash:
+                logger.info(f"Choosing B: {b.encrypted_path.name}")
+                a.encrypted_path.rename(a.encrypted_path.parent / (a.encrypted_path.name + '#CONFLICT'))
+            else:
+                logger.error("Failed to find a resolution")
+
         else:
             logger.error(f"SYNC: unexpected error: {a_name} - {b_name}")
 

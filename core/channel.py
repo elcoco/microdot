@@ -20,8 +20,8 @@ except ImportError as e:
 
 logger = logging.getLogger("microdot")
 
-ENCRYPTED_DIR_FORMAT  = "{name}#{md5}#dir#encrypted"
-ENCRYPTED_FILE_FORMAT  = "{name}#{md5}#encrypted"
+ENCRYPTED_DIR_FORMAT  = "{name}#{md5}#DIR#ENCRYPTED"
+ENCRYPTED_FILE_FORMAT  = "{name}#{md5}#FILE#ENCRYPTED"
 TMP_FILE_PATH = '/tmp/microdot.tmp.tar'
 
 
@@ -115,36 +115,22 @@ class DotFile():
 class DotFileEncryptedBaseClass(DotFile):
     """ Baseclass for all encrypted files/directories """
     def __init__(self, path, channel, key):
-        # farse filename
+        # parse filename
         try:
-            name, self.hash, ftype, _ = path.name.split('#')
+            name, self.hash, _, _ = path.name.split('#')
             self.path = (path.parent / name)
             self.encrypted_path = path
-            self.ftype = "DIR"
         except ValueError:
-            try:
-                name, self.hash, _ = path.name.split('#')
-                self.path = (path.parent / name)
-                self.encrypted_path = path
-                self.ftype = "FILE"
-            except ValueError:
-                logger.info(f"instantiated for init(), allow incomplete data: {path}")
-                self.hash = None
-                self.encrypted_path = None
-                self.path = path
-                self.ftype = None
+            logger.info(f"instantiated by init(), allow incomplete data: {path}")
+            self.hash = None
+            self.encrypted_path = None
+            self.path = path
 
         self.channel = channel
         self.name = self.path.relative_to(channel)
         self.link_path = Path.home() / self.name
         self.is_encrypted = True
         self._key = key
-
-    def is_file(self):
-        return self.ftype == "FILE"
-
-    def is_dir(self):
-        return self.ftype == "DIR"
 
     def encrypt(self, src, key, force=False):
         """ Do some encryption here and write to dest path """
@@ -224,6 +210,12 @@ class DotFileEncrypted(DotFileEncryptedBaseClass):
     def __init__(self, *args):
         super().__init__(*args)
 
+    def is_file(self):
+        return True
+
+    def is_dir(self):
+        return False
+
     def init(self, src):
         """ Move source path to dotfile location """
         md5 = self.get_hash(src)
@@ -263,6 +255,12 @@ class DotFileEncrypted(DotFileEncryptedBaseClass):
 class DotDirEncrypted(DotFileEncryptedBaseClass):
     def __init__(self, *args):
         super().__init__(*args)
+
+    def is_file(self):
+        return False
+
+    def is_dir(self):
+        return True
 
     def update(self):
         """ If decrypted directory has changed, update encrypted file """
@@ -345,9 +343,9 @@ class Channel():
     def create_obj(self, path):
         """ Create a brand new DotFile object """
         
-        if path.name.endswith("#dir#encrypted"):
+        if path.name.endswith("#DIR#ENCRYPTED"):
             return DotDirEncrypted(path, self._path, self._key)
-        elif path.name.endswith("#encrypted"):
+        elif path.name.endswith("#FILE#ENCRYPTED"):
             return DotFileEncrypted(path, self._path, self._key)
         return DotFile(path, self._path)
 

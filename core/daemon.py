@@ -176,7 +176,6 @@ def sync(path, error_msg_interval):
 
     print(50*'*')
     # get double files and solve them
-    #dotfiles = get_encrypted_dotfiles()
     for dotfile in get_encrypted_dotfiles():
         logger.debug(f"Checking {len(dotfile)} dotfiles")
         if len(dotfile) > 2:

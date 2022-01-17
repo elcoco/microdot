@@ -4,6 +4,7 @@ import shutil
 import hashlib
 import tarfile
 import tempfile
+from itertools import groupby
 
 from core.exceptions import MicrodotError
 from core import gitignore
@@ -484,16 +485,17 @@ def get_linked_encrypted_dotfiles(state, linked=True):
 
 def get_encrypted_dotfiles():
     """ Return encrypted dotfiles, doubles are grouped by filename """
-    encrypted = []
+
+    groups = []
+    keyfunc = lambda x: x.name
+
     for channel in get_channels(state):
-        for dotfile in channel.dotfiles:
+        data = [x for x in channel.dotfiles if x.is_encrypted]
+        data = sorted(data, key=keyfunc)
+        for k, g in groupby(data, keyfunc):
+            groups.append(list(g))
 
-            if not dotfile.is_encrypted:
-                continue
-
-            encrypted.append([df for df in channel.dotfiles if df.name == dotfile.name])
-
-    return encrypted
+    return groups
 
 def update_encrypted_from_decrypted():
     for df in get_linked_encrypted_dotfiles(state):

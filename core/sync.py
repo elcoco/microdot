@@ -57,6 +57,8 @@ class StatusList():
                 if path.exists():
                     logger.info(f"Removing {path}")
                     path.unlink()
+
+                logger.info(f"Removing {path} from list")
                 self.remove(encrypted_path)
         self.write()
 

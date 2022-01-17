@@ -44,8 +44,6 @@ class StatusList():
             If so, this indicates a deletion """
         self.read_list()
 
-
-
         for path in [x.strip() for x in self._list]:
             if not path:
                 continue
@@ -61,7 +59,7 @@ class StatusList():
                 b = dotfile[1] if len(dotfile) > 1 else None
 
                 if self.is_in_conflict(a, b):
-                    logger.debug(f"Not removing when in conflict!! {a} <> {b}")
+                    logger.debug(f"Not removing when in conflict!! {a.encrypted_path.name} <> {b.encrypted_path.name}")
                     break
 
                 if self.exists(b):
@@ -77,6 +75,7 @@ class StatusList():
 
                 logger.info(f"Removing {path} from list")
                 self.remove(encrypted_path)
+
         self.write()
 
     def a_is_new(self, a, b):
@@ -116,7 +115,7 @@ class StatusList():
             return True
 
     def is_in_conflict(self, a, b):
-        return not self.in_list(a) and not self.in_list(b)
+        return self.exists(a) and self.exists(b) and not self.in_list(a) and not self.in_list(b)
 
 
     def solve(self, a=None, b=None):

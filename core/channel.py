@@ -198,14 +198,7 @@ class DotFileEncryptedBaseClass(DotFile):
         return m.hexdigest()
 
     def is_changed(self):
-        """ Checks current md5 against last md5 """
-        
-        #if self.hash != self.get_hash(self.path):
-        #    logger.info(50*'-')
-        #    logger.info(f"Is_changed: path:     {self.path}")
-        #    logger.info(f"Is_changed: old hash: {self.hash}")
-        #    logger.info(f"Is_changed: new hash: {self.get_hash(self.path)}")
-        #    logger.info(50*'-')
+        """ Checks current file md5 against last md5 """
         return self.hash != self.get_hash(self.path)
 
 
@@ -485,7 +478,7 @@ def get_linked_encrypted_dotfiles(state, linked=True):
                 linked.append(dotfile)
     return linked
 
-def get_encrypted_dotfiles():
+def get_encrypted_dotfiles(linked=False):
     """ Return encrypted dotfiles, doubles are grouped by filename """
 
     groups = []
@@ -493,6 +486,10 @@ def get_encrypted_dotfiles():
 
     for channel in get_channels(state):
         data = [x for x in channel.dotfiles if x.is_encrypted]
+
+        if linked:
+            data = [x for x in data if x.check_symlink()]
+
         data = sorted(data, key=keyfunc)
         for k, g in groupby(data, keyfunc):
             groups.append(list(g))

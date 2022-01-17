@@ -163,7 +163,17 @@ def parse_diff(item):
 
 def sync(path, error_msg_interval):
     # start in a fully synchronised state, unencrypted_data==encrypted_data
-    update_encrypted_from_decrypted()
+    #update_encrypted_from_decrypted()
+
+    #for df in get_linked_encrypted_dotfiles(state):
+    #    df.update()
+    for dotfile in get_encrypted_dotfiles(linked=True):
+        a = dotfile[0]
+        b = dotfile[1] if len(dotfile) > 1 else None
+        if status_list.is_in_conflict(a, b):
+            logger.debug("Skipping conflict")
+            continue
+        a.update()
 
     try:
         g = Git(path)
@@ -210,11 +220,11 @@ def sync(path, error_msg_interval):
     # DONE: after file is deleted by remote, the decrypted file is left on the system
     #      and will start syncin as a normal file so we need to check the status list
     #      for entries with missing files and remove decrypted data if found
-    # TODO in case of conflict, this will start removing one of the files.
-    #dotfiles = sum(dotfiles, [])
     dotfiles = get_encrypted_dotfiles()
     status_list.check_removed(dotfiles)
     print(50*'*')
+
+    # TODO in case of conflict, the next update one of the files is considered new
 
 
     logger.info(f"Pushing to remote origin")

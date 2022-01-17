@@ -191,6 +191,8 @@ def sync(path, error_msg_interval):
 
         if status_list.a_is_new(a, b):
             logger.debug(f"SYNC: A is new: {a_name}")
+        elif status_list.b_is_new(a, b):
+            logger.debug(f"SYNC: B is new: {a_name}")
         elif status_list.is_in_sync(a, b):
             logger.debug("SYNC: We are in sync")
         elif status_list.a_is_newer(a, b):

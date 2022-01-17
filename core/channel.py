@@ -137,7 +137,10 @@ class DotFileEncryptedBaseClass(DotFile):
         """ Do some encryption here and write to dest path """
         if self.encrypted_path.exists():
             if force:
-                shutil.rmtree(self.encrypted_path, ignore_errors=False, onerror=None)
+                if self.is_file():
+                    self.encrypted_path.unlink()
+                else:
+                    shutil.rmtree(self.encrypted_path, ignore_errors=False, onerror=None)
             else:
                 raise MicrodotError(f"Encrypted file exists in channel: {self.encrypted_path}")
 

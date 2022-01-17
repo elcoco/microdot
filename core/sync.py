@@ -87,8 +87,11 @@ class StatusList():
             return True
 
     def b_is_new(self, a, b):
-        if not self.in_list(b) and not self.exists(a):
-            pass
+        if not self.exists(a) and not self.in_list(b):
+            self.add(b.encrypted_path)
+            if b.check_symlink():
+                b.decrypt()
+            return True
 
     def is_in_sync(self, a, b):
         return self.in_list(a) and not self.exists(b)

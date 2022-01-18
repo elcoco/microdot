@@ -223,7 +223,21 @@ class Sync(SyncAlgorithm):
                     a.decrypt()
 
             elif (df := self.is_in_conflict(a_path, b_path)):
-                df.rename(df.parent / (df.name + '#CONFLICT'))
+                info(' ', 'solution', 'in conflict')
+                d_hash = a.get_hash(a.path)
+
+                # TODO attach hostname and date for easy identification
+                if d_hash == a.hash:
+                    info(' ', 'solution', f"Choosing A: {a.name}")
+                    df.rename(b.parent / (b.name + '#CONFLICT'))
+
+                elif d_hash == b.hash:
+                    info(' ', 'solution', f"Choosing B: {b.name}")
+                    df.rename(a.parent / (a.name + '#CONFLICT'))
+
+                else:
+                    logger.error("Failed to find a resolution")
+
 
             else:
                 logger.error(f"SYNC: unexpected error: {a.name} - {b.name}")

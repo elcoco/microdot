@@ -72,7 +72,7 @@ class SyncAlgorithm(LastSyncIndex):
                     break
             else:
                 if path.exists():
-                    logger.info(f"Removing: {path}")
+                    info("*", 'removing', path)
                     path.unlink()
 
                 self.remove(encrypted_path)
@@ -111,20 +111,4 @@ class SyncAlgorithm(LastSyncIndex):
     def is_in_conflict(self, a, b):
         """ Solve a conflict by choosing the local data and renaming the other file """
         if self.exists(a) and self.exists(b) and not self.in_list(a) and not self.in_list(b):
-            d_hash = a.get_hash(a.path)
-            logger.info("  in conflict")
-            info(' ', 'solution', 'in conflict')
-
-            # TODO attach hostname and date for easy identification
-            if d_hash == a.hash:
-                info(' ', 'solution', f"Choosing A: {a.name}")
-                return b
-
-            elif d_hash == b.hash:
-                info(' ', 'solution', f"Choosing B: {b.name}")
-                return a
-
-            else:
-                logger.error("Failed to find a resolution")
-
             return True

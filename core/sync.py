@@ -38,45 +38,6 @@ class StatusList():
         logger.debug(f"STATUS: list_rm: {path}")
         self._list.remove(str(path.absolute()))
 
-
-    def check_removed_old(self, dotfiles):
-        """ Check if items from list don't have corresponding data on system.
-            If so, this indicates a deletion """
-        self.read_list()
-
-        for path in [x.strip() for x in self._list]:
-            if not path:
-                continue
-
-            encrypted_path = Path(path)
-            name = encrypted_path.name.split('#')[0]
-            path = Path(path).parent / name
-
-            # see if status list entry has a corresponding file on disk
-            for dotfile in dotfiles:
-
-                a = dotfile[0]
-                b = dotfile[1] if len(dotfile) > 1 else None
-
-                if self.is_in_conflict(a, b):
-                    logger.debug(f"Not removing when in conflict!! {a.encrypted_path.name} <> {b.encrypted_path.name}")
-                    break
-
-                if self.exists(b):
-                    logger.error(f"Unexpected: {a} - {b}")
-                    break
-
-                if path == a.path:
-                    break
-            else:
-                if path.exists():
-                    logger.info(f"Removing {path}")
-                    path.unlink()
-
-                self.remove(encrypted_path)
-
-        self.write()
-
     def check_removed(self, dotfiles):
         """ Check if items from list don't have corresponding data on system.
             If so, this indicates a deletion """

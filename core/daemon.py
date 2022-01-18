@@ -215,7 +215,6 @@ def sync(path, error_msg_interval):
             logger.error(f"SYNC: unexpected error: {a_name} - {b_name}")
 
         status_list.write()
-        #status_list.solve(a, b)
 
     # DONE: after file is deleted by remote, the decrypted file is left on the system
     #      and will start syncin as a normal file so we need to check the status list

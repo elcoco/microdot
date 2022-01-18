@@ -25,10 +25,10 @@ import argparse
 from pathlib import Path
 
 from core.gitignore import Gitignore
-from core import state
+from core import state, lock
 from core.channel import get_channels, get_channel, get_linked_encrypted_dotfiles
 from core.exceptions import MicrodotError
-from core.daemon import watch_repo, sync
+from core.daemon import Watch
 
 logger = logging.getLogger("microdot")
 
@@ -104,14 +104,17 @@ class App():
                 logger.error(e)
 
         elif state.do_sync:
-            sync(state.core.dotfiles_dir, state.notifications.error_interval)
+            try:
+                w = Watch(state.core.dotfiles_dir, state.git.interval, state.notifications.error_interval)
+                with lock:
+                    w.sync()
+            except MicrodotError as e:
+                logger.error(e)
 
         elif state.do_watch:
             try:
-                watch_repo(state.core.dotfiles_dir,
-                           pull_interval  = state.git.pull_interval,
-                           push_interval  = state.git.push_interval,
-                           error_interval = state.notifications.error_interval)
+                w = Watch(state.core.dotfiles_dir, state.git.interval, state.notifications.error_interval)
+                w.watch_repo()
             except MicrodotError as e:
                 logger.error(e)
 

@@ -9,10 +9,11 @@ from subprocess import Popen
 from pathlib import Path
 from typing import ClassVar
 
-from core import lock, status_list
+from core import lock
 from git import Repo
 from core.exceptions import MicrodotError
 from core.channel import update_encrypted_from_decrypted, update_decrypted_from_encrypted, get_encrypted_dotfiles
+from core.sync import Sync
 
 logger = logging.getLogger("microdot")
 
@@ -20,6 +21,10 @@ logger = logging.getLogger("microdot")
 class GitException(Exception):
     pass
 
+# TODO error notifications
+# TODO separate logic and execution of sync Sync() <> Watch()
+# TODO come up with better name for Watch()
+# TODO better info/debug messages
 
 @dataclass
 class Message():
@@ -141,112 +146,104 @@ class Git():
             logger.error(e.stderr.strip())
             return Message("pull", "Failed to pull changes", e.stderr.strip(), urgency="critical")
 
-def at_exit(thread):
-    logger.debug("Stopping GitPullThread")
-    thread.stop()
-    thread.join()
 
-def parse_diff(item):
-    """ Parse diff object and construct a message """
-    match item.change_type:
-        case 'A':
-            msg = f"deleted: {item.a_path}"
-        case 'D':
-            msg = f"new: {item.a_path}"
-        case 'M':
-            msg = f"modified: {item.a_path}"
-        case 'R':
-            msg = f"renamed: {item.a_path} -> {item.b_path}"
-        case _:
-            msg = "type {item.change_type}: {item.a_path}"
-    return msg
-
-def sync(path, error_msg_interval):
-    # start in a fully synchronised state, unencrypted_data==encrypted_data
-    update_encrypted_from_decrypted()
-
-    #for df in get_linked_encrypted_dotfiles(state):
-    ##    df.update()
-    #for dotfile in get_encrypted_dotfiles(linked=True):
-    #    a = dotfile[0]
-    #    b = dotfile[1] if len(dotfile) > 1 else None
-    #    if status_list.is_in_conflict(a, b):
-    #        logger.debug("Skipping conflict")
-    #        continue
-    #    a.update()
-
-    try:
-        g = Git(path)
-    except GitException as e:
-        raise MicrodotError(e)
-
-    logger.info(f"Pulling remote origin")
-    if (msg := g.pull()):
-        msg.notify(error_interval=error_msg_interval)
-
-    print(50*'*')
-
-    for dotfile in get_encrypted_dotfiles():
-        logger.debug(f"Checking {len(dotfile)} dotfile(s): {dotfile[0].name}")
-        a = dotfile[0]
-        b = dotfile[1] if len(dotfile) > 1 else None
-
+class Watch():
+    def __init__(self, path, interval=3, error_msg_interval=30):
         try:
-            a_name = a.encrypted_path.name
-            b_name = b.encrypted_path.name
-        except AttributeError:
+            self.g = Git(path)
+        except GitException as e:
+            raise MicrodotError(e)
+
+        if lock.is_locked():
+            lock.release_lock()
+
+        self.interval = interval
+        self.error_msg_interval = error_msg_interval
+
+    def parse_diff(self, item):
+        """ Parse diff object and construct a message """
+        match item.change_type:
+            case 'A':
+                msg = f"deleted: {item.a_path}"
+            case 'D':
+                msg = f"new: {item.a_path}"
+            case 'M':
+                msg = f"modified: {item.a_path}"
+            case 'R':
+                msg = f"renamed: {item.a_path} -> {item.b_path}"
+            case _:
+                msg = "type {item.change_type}: {item.a_path}"
+        return msg
+
+    def pre_sync(self):
+        # start in a fully synchronised state, unencrypted_data==encrypted_data
+        update_encrypted_from_decrypted()
+
+        logger.info(f"Pulling remote data")
+        if (msg := self.g.pull()):
+            msg.notify(error_interval=self.error_msg_interval)
+
+    def sync(self):
+        self.pre_sync()
+        s = Sync()
+
+        print(50*'*')
+
+        for dotfile in get_encrypted_dotfiles():
+            logger.debug(f"Checking {len(dotfile)} dotfile(s): {dotfile[0].name}")
+            a = dotfile[0]
+            b = dotfile[1] if len(dotfile) > 1 else None
+
+            try:
+                a_name = a.encrypted_path.name
+                b_name = b.encrypted_path.name
+            except AttributeError:
+                pass
+
+            if s.a_is_new(a, b):
+                logger.debug(f"SYNC: A is new: {a_name}")
+            elif s.b_is_new(a, b):
+                logger.debug(f"SYNC: B is new: {a_name}")
+            elif s.is_in_sync(a, b):
+                logger.debug("SYNC: in sync")
+            elif s.a_is_newer(a, b):
+                logger.debug(f"SYNC: B is newer: {a_name} < {b_name}")
+            elif s.b_is_newer(a, b):
+                logger.debug(f"SYNC: A is newer: {a_name} > {b_name}")
+            elif s.is_in_conflict(a, b):
+                logger.error(f"SYNC: conflict: {a_name} <> {b_name}")
+            else:
+                logger.error(f"SYNC: unexpected error: {a_name} - {b_name}")
+
+        # DONE: after file is deleted by remote, the decrypted file is left on the system
+        #      and will start syncin as a normal file so we need to check the status list
+        #      for entries with missing files and remove decrypted data if found
+        dotfiles = get_encrypted_dotfiles()
+        dotfiles = sum(dotfiles, [])
+        s.check_removed(dotfiles)
+        print(50*'*')
+
+    def post_sync(self):
+        logger.info(f"Pushing to remote origin")
+        if (staged := self.g.commit()):
             pass
 
-        status_list.read_list()
+        if (msg := self.g.push()):
+            if staged:
+                msg.body = '\n'.join([self.parse_diff(l) for l in staged])
 
-        if status_list.a_is_new(a, b):
-            logger.debug(f"SYNC: A is new: {a_name}")
-        elif status_list.b_is_new(a, b):
-            logger.debug(f"SYNC: B is new: {a_name}")
-        elif status_list.is_in_sync(a, b):
-            logger.debug("SYNC: in sync")
-        elif status_list.a_is_newer(a, b):
-            logger.debug(f"SYNC: B is newer: {a_name} < {b_name}")
-        elif status_list.b_is_newer(a, b):
-            logger.debug(f"SYNC: A is newer: {a_name} > {b_name}")
-        elif status_list.is_in_conflict(a, b):
-            logger.error(f"SYNC: conflict: {a_name} <> {b_name}")
-        else:
-            logger.error(f"SYNC: unexpected error: {a_name} - {b_name}")
+            msg.notify(error_interval=self.error_msg_interval)
 
-        status_list.write()
+    def watch_repo(self):
+        # start with clean state
+        push_interval = 5
 
-    # DONE: after file is deleted by remote, the decrypted file is left on the system
-    #      and will start syncin as a normal file so we need to check the status list
-    #      for entries with missing files and remove decrypted data if found
-    dotfiles = get_encrypted_dotfiles()
-    dotfiles = sum(dotfiles, [])
-    status_list.check_removed(dotfiles)
-    print(50*'*')
+        try:
+            while True:
+                with lock:
+                    self.sync()
 
-    logger.info(f"Pushing to remote origin")
-    if (staged := g.commit()):
-        pass
+                time.sleep(self.interval)
 
-    if (msg := g.push()):
-        if staged:
-            msg.body = '\n'.join([parse_diff(l) for l in staged])
-
-        msg.notify(error_interval=error_msg_interval)
-
-
-def watch_repo(path, pull_interval=10, push_interval=3, error_interval=30):
-    # start with clean state
-    push_interval = 5
-    if lock.is_locked():
-        lock.release_lock()
-
-    try:
-        while True:
-            with lock:
-                sync(path, error_interval)
-
-            time.sleep(20)
-
-    except KeyboardInterrupt:
-        pass
+        except KeyboardInterrupt:
+            pass

@@ -3,7 +3,7 @@ import logging
 
 from core.config import Config
 from core.utils import Lock
-from core.sync import StatusList
+#from core.sync import StatusList
 
 from cryptography.fernet import Fernet
 
@@ -66,8 +66,7 @@ state.colors.linked          = 'green'
 state.colors.unlinked        = 'default'
 state.colors.encrypted       = 'cyan'
 state.git                    = {}
-state.git.pull_interval      = 30
-state.git.push_interval      = 3
+state.git.interval           = 15
 state.notifications          = {}
 state.notifications.error_interval = 60
 
@@ -91,4 +90,4 @@ state.do_sync       = False
 
 lock = Lock('/tmp/microdot.lock')
 
-status_list = StatusList()
+#status_list = StatusList()

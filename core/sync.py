@@ -142,9 +142,10 @@ class StatusList():
     def is_in_conflict(self, a, b):
         if self.exists(a) and self.exists(b) and not self.in_list(a) and not self.in_list(b):
             self.solve(a, b)
+            return True
 
 
-    def solve(self, a=None, b=None):
+    def solve(self, a, b):
         """ Solve a conflict by choosing the local data and renaming the other file """
         d_hash = a.get_hash(a.path)
 

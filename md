@@ -21,6 +21,7 @@
 # TODO one way to solve dir encryption problem is to zip dir and then encrypt (tarfile std lib)
 
 # TODO use shorter base64 hashes
+# TODO call StatusList LastSyncIndex
 
 import logging
 import argparse

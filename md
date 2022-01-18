@@ -20,6 +20,8 @@
 
 # TODO one way to solve dir encryption problem is to zip dir and then encrypt (tarfile std lib)
 
+# TODO use shorter base64 hashes
+
 import logging
 import argparse
 from pathlib import Path

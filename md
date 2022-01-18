@@ -110,8 +110,7 @@ class App():
             try:
                 watch_repo(state.core.dotfiles_dir,
                            pull_interval  = state.git.pull_interval,
-                           push_interval  = 15,
-                           #push_interval  = state.git.push_interval,
+                           push_interval  = state.git.push_interval,
                            error_interval = state.notifications.error_interval)
             except MicrodotError as e:
                 logger.error(e)

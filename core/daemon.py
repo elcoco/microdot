@@ -246,7 +246,7 @@ def watch_repo(path, pull_interval=10, push_interval=3, error_interval=30):
             with lock:
                 sync(path, error_interval)
 
-            time.sleep(push_interval)
+            time.sleep(20)
 
     except KeyboardInterrupt:
         pass

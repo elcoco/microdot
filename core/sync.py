@@ -22,8 +22,8 @@ class GitException(Exception):
     pass
 
 # TODO error notifications
-# TODO separate logic and execution of sync Sync() <> Watch()
-# TODO come up with better name for Watch()
+# DONE separate logic and execution of sync Sync() <> Watch()
+# DONE come up with better name for Watch()
 # TODO better info/debug messages
 
 @dataclass

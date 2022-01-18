@@ -6,10 +6,10 @@
 # TODO when linking or unlinking all, filter file list
 # TODO add option to stop daemon
 # DONE when internet is gone, gitpush will just skip. when internet reconnects, the push is not triggered again
-# TODO when a linked encrypted file is updated when using watch, update decrypted file
+# DONE when a linked encrypted file is updated when using watch, update decrypted file
 # TODO when answered no when creating common channel, program crashes`
 
-# TODO when a decrypted file is edited it needs to sync with the encrypted file
+# DONE when a decrypted file is edited it needs to sync with the encrypted file
 #      or changes get lost
 #      When linking/init encrypted file, a warning needs to display about non running daemons
 
@@ -20,6 +20,7 @@
 
 # DONE use shorter base64 hashes
 # DONE call StatusList LastSyncIndex
+# TODO fileter out CONFLICT files
 
 import logging
 import argparse

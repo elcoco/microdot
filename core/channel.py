@@ -26,6 +26,8 @@ ENCRYPTED_DIR_FORMAT  = "{name}#{md5}#D#CRYPT"
 ENCRYPTED_FILE_FORMAT  = "{name}#{md5}#F#CRYPT"
 TMP_FILE_PATH = '/tmp/microdot.tmp.tar'
 
+# characters to use instead of the filsystem unsafe +/
+BASE_64_ALT_CHARS = "@$"
 
 """
     You can add a new encrypted file with: $ md --init file.txt -e
@@ -195,7 +197,7 @@ class DotFileEncryptedBaseClass(DotFile):
                 m.update(p.name.encode())
         else:
             m.update(path.read_bytes())
-        return base64.b64encode(m.digest(), altchars=b'@&').decode()[:8]
+        return base64.b64encode(m.digest(), altchars=BASE_64_ALT_CHARS.encode()).decode()[:8]
 
     def is_changed(self):
         """ Checks current file md5 against last md5 """
@@ -337,7 +339,6 @@ class Channel():
 
     def create_obj(self, path):
         """ Create a brand new DotFile object """
-        
         if path.name.endswith("#D#CRYPT"):
             return DotDirEncrypted(path, self._path, self._key)
         elif path.name.endswith("#F#CRYPT"):
@@ -355,7 +356,6 @@ class Channel():
         return ret
 
     def search_dotfiles(self, item, search_dirs):
-        # TODO fileter out unencrypted versions of encrypted files
         # recursive find of files and dirs in channel when file/dir is in search_dirs
         items = [self.create_obj(f) for f in item.iterdir() if f.is_file()]
 

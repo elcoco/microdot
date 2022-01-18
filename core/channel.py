@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 import shutil
 import hashlib
+import base64
 import tarfile
 import tempfile
 from itertools import groupby
@@ -21,8 +22,8 @@ except ImportError as e:
 
 logger = logging.getLogger("microdot")
 
-ENCRYPTED_DIR_FORMAT  = "{name}#{md5}#DIR#ENCRYPTED"
-ENCRYPTED_FILE_FORMAT  = "{name}#{md5}#FILE#ENCRYPTED"
+ENCRYPTED_DIR_FORMAT  = "{name}#{md5}#D#CRYPT"
+ENCRYPTED_FILE_FORMAT  = "{name}#{md5}#F#CRYPT"
 TMP_FILE_PATH = '/tmp/microdot.tmp.tar'
 
 
@@ -192,10 +193,9 @@ class DotFileEncryptedBaseClass(DotFile):
             for p in path.rglob("*"):
                 m.update(p.read_bytes())
                 m.update(p.name.encode())
-            return m.hexdigest()
-
-        m.update(path.read_bytes())
-        return m.hexdigest()
+        else:
+            m.update(path.read_bytes())
+        return base64.b64encode(m.digest(), altchars=b'@&').decode()[:8]
 
     def is_changed(self):
         """ Checks current file md5 against last md5 """
@@ -338,9 +338,9 @@ class Channel():
     def create_obj(self, path):
         """ Create a brand new DotFile object """
         
-        if path.name.endswith("#DIR#ENCRYPTED"):
+        if path.name.endswith("#D#CRYPT"):
             return DotDirEncrypted(path, self._path, self._key)
-        elif path.name.endswith("#FILE#ENCRYPTED"):
+        elif path.name.endswith("#F#CRYPT"):
             return DotFileEncrypted(path, self._path, self._key)
         return DotFile(path, self._path)
 

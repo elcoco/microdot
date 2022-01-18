@@ -18,10 +18,8 @@
 # TODO add encrypt option to --link switch so we can encrypt an already initialized file
 #      ask the user to remove file from git cache
 
-# TODO one way to solve dir encryption problem is to zip dir and then encrypt (tarfile std lib)
-
-# TODO use shorter base64 hashes
-# TODO call StatusList LastSyncIndex
+# DONE use shorter base64 hashes
+# DONE call StatusList LastSyncIndex
 
 import logging
 import argparse
@@ -31,7 +29,7 @@ from core.gitignore import Gitignore
 from core import state, lock
 from core.channel import get_channels, get_channel, get_linked_encrypted_dotfiles
 from core.exceptions import MicrodotError
-from core.daemon import Watch
+from core.sync import Sync
 
 logger = logging.getLogger("microdot")
 
@@ -108,16 +106,16 @@ class App():
 
         elif state.do_sync:
             try:
-                w = Watch(state.core.dotfiles_dir, state.git.interval, state.notifications.error_interval)
+                s = Sync(state.core.dotfiles_dir, state.git.interval, state.notifications.error_interval)
                 with lock:
-                    w.sync()
+                    s.sync()
             except MicrodotError as e:
                 logger.error(e)
 
         elif state.do_watch:
             try:
-                w = Watch(state.core.dotfiles_dir, state.git.interval, state.notifications.error_interval)
-                w.watch_repo()
+                s = Sync(state.core.dotfiles_dir, state.git.interval, state.notifications.error_interval)
+                s.watch_repo()
             except MicrodotError as e:
                 logger.error(e)
 

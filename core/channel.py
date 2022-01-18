@@ -11,7 +11,7 @@ from core.exceptions import MicrodotError
 from core import gitignore
 from core import state
 
-from core.utils import confirm, colorize
+from core.utils import confirm, colorize, debug, info
 
 try:
     from cryptography.fernet import Fernet
@@ -97,7 +97,7 @@ class DotFile():
             raise MicrodotError(f"Link exists: {link}")
 
         link.symlink_to(self.path)
-        #logger.info(f"Linked: {link} -> {self.path}")
+        debug(self.name, 'linked', f'{link} -> {self.path}')
         return True
     
     def unlink(self):
@@ -106,13 +106,13 @@ class DotFile():
             return
 
         self.link_path.unlink()
-        #print(f"Unlink: unlinked: {self.link_path}")
+        debug(self.name, 'unlinked', self.link_path)
         return True
 
     def init(self, src):
         """ Move source path to dotfile location """
         src.replace(self.path)
-        logger.info(f"Moved: {src} -> {self.path}")
+        debug(self.name, 'moved', f'{src} -> {self.path}')
         self.link()
 
 
@@ -151,7 +151,7 @@ class DotFileEncryptedBaseClass(DotFile):
         encrypted = fernet.encrypt(src.read_bytes())
 
         self.encrypted_path.write_bytes(encrypted)
-        print(f"Encrypt: encrypted: {src} -> {self.encrypted_path}")
+        debug(self.name, 'encrypted', f'{src.name} -> {self.encrypted_path.name}')
 
     def decrypt(self, dest=None):
         """ Do some decryption here and write to dest path """
@@ -168,7 +168,7 @@ class DotFileEncryptedBaseClass(DotFile):
             raise MicrodotError(f"Failed to decrypt {self.encrypted_path}, invalid key.")
 
         dest.write_bytes(decrypted)
-        #logger.info(f"Decrypt: decrypted {self.encrypted_path} -> {dest}")
+        debug(self.name, 'decrypted', f'{self.encrypted_path.name} -> {dest.name}')
 
     def link(self, force=False):
         if self.link_path.is_symlink():
@@ -181,7 +181,6 @@ class DotFileEncryptedBaseClass(DotFile):
         # source is a directory, first create tar archive
         tmp_file = Path(tempfile.mktemp())
 
-        logger.info("Get_tar: encrypting directory")
         with tarfile.open(tmp_file, 'w') as f:
             f.add(src, arcname=src.name)
         return tmp_file
@@ -221,33 +220,32 @@ class DotFileEncrypted(DotFileEncryptedBaseClass):
 
         self.encrypt(src, self._key)
         src.unlink()
-        logger.info(f"Init: removed original file: {src}")
+        debug(self.name, 'init', f'removed original file: {src}')
         self.link()
 
     def unlink(self):
         if not DotFile.unlink(self):
             return
-        #logger.info(f"Unlink: removing decrypted file: {self.path}")
+        debug(self.name, 'removed', f'decrypted file: {self.path}')
         self.path.unlink()
 
     def update(self):
         """ If decrypted directory has changed, update encrypted file """
         if not self.is_changed():
             return
-        logger.info(f"Detected change in: {self.path}")
+        info(self.name, 'changed file', self.path)
 
         old_encrypted_path = self.encrypted_path
 
         md5 = self.get_hash(self.path)
         self.encrypted_path = self.path.parent / ENCRYPTED_FILE_FORMAT.format(name=self.name, md5=md5)
         self.encrypt(self.path, self._key, force=True)
-        #logger.info(f"Update: updated: {self.name} -> {self.encrypted_path}")
 
         self.unlink()
         old_encrypted_path.unlink()
         self.link()
 
-        #logger.info(f"Update: updated: {self.name} -> {self.encrypted_path}")
+        info(self.name, 'updated', f'{self.name} -> {self.encrypted_path.name}')
 
 
 class DotDirEncrypted(DotFileEncryptedBaseClass):
@@ -265,7 +263,7 @@ class DotDirEncrypted(DotFileEncryptedBaseClass):
         if not self.is_changed():
             return
 
-        logger.info(f"Detected change in: {self.path}")
+        info(self.name, 'changed dir', self.path)
 
         # we need to remove this path later
         old_encrypted_path = self.encrypted_path
@@ -282,7 +280,7 @@ class DotDirEncrypted(DotFileEncryptedBaseClass):
         old_encrypted_path.unlink()
         self.link()
 
-        #logger.info(f"Update: updated: {self.name} -> {self.encrypted_path}")
+        info(self.name, 'updated', f'{self.name} -> {self.encrypted_path.name}')
 
     def decrypt(self):
         tmp_dir = Path(tempfile.mkdtemp())

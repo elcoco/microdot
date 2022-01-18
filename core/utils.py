@@ -69,10 +69,26 @@ def colorize(string, color):
     colors['bwhite']   = '\033[1;37m'
     colors['reset']    = '\033[0m'
     colors['default']    = '\033[0m'
-    return colors[color] + string + colors["reset"]
+    return colors[color] + str(string) + colors["reset"]
 
 def confirm(msg, assume_yes=False):
     if assume_yes:
         return True
     if input(msg + ' [y/N] ').lower() == 'y':
         return True
+
+def info(file, task, msg):
+    file = colorize(file, 'green')
+
+    task = task.ljust(10)
+    task = colorize(task, 'magenta')
+
+    msg = colorize(msg, 'white')
+    logger.info(f"{file} {task} {msg}")
+
+def debug(file, task, msg):
+    file = colorize(file, 'green')
+    task = task.ljust(10)
+    task = colorize(task, 'magenta')
+    msg = colorize(msg, 'white')
+    logger.debug(f"{file} {task} {msg}")

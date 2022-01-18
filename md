@@ -51,6 +51,7 @@ class App():
         parser.add_argument('-d', '--dotfiles-dir', help='dotfiles directory', metavar='DIR', default=None)
         parser.add_argument('-y', '--assume-yes',   help='answer yes to questions', action='store_true')
         parser.add_argument('-f', '--force',        help='overwrite file if exists', action='store_true')
+        parser.add_argument('-D', '--debug',        help='enable debug', action='store_true')
 
         args = parser.parse_args()
 
@@ -63,7 +64,10 @@ class App():
         state.do_assume_yes   = args.assume_yes
         state.do_force        = args.force
         state.do_watch        = args.watch
-        state.do_sync       = args.sync
+        state.do_sync         = args.sync
+
+        if args.debug:
+            logger.setLevel(logging.DEBUG)
 
         # find dotfiles directory
         if args.dotfiles_dir:

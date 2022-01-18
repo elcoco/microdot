@@ -14,9 +14,11 @@ from git import Repo
 from core.exceptions import MicrodotError
 from core.channel import update_encrypted_from_decrypted, update_decrypted_from_encrypted, get_encrypted_dotfiles
 from core.logic import SyncAlgorithm
+from core.utils import debug, info
 
 logger = logging.getLogger("microdot")
 
+COMMIT_MSG = 'update'
 
 class GitException(Exception):
     pass
@@ -94,8 +96,8 @@ class Git():
         staged = self._repo.index.diff("HEAD")
 
         if (diff := self._repo.index.diff("HEAD")):
-            commit = self._repo.index.commit("test commit")
-            logger.info(f"Committing {len(diff)} changes: {commit}")
+            commit = self._repo.index.commit(COMMIT_MSG)
+            debug('*', 'commit', f'{len(diff)} changes: {commit}')
             return staged
 
     def has_pending_commits(self):
@@ -109,36 +111,39 @@ class Git():
         if not (commits := self.has_pending_commits()):
             return
 
-        logger.info(f"Pushing {len(commits)} commit(s)")
+        debug('*', 'push', f'{len(commits)} commit(s)')
+
         try:
-            info = origin.push()[0]
+            pinfo = origin.push()[0]
         except git.exc.GitCommandError as e:
             logger.error(e)
             return Message("push", "Failed to push changes", e.stderr.strip(), urgency="critical")
 
-        if info.flags & info.ERROR:
-            if info.flags & info.REJECTED:
+        if pinfo.flags & pinfo.ERROR:
+            if pinfo.flags & pinfo.REJECTED:
                 msg = "Push is rejected"
-            elif info.flags & info.REMOTE_REJECTED:
+            elif pinfo.flags & pinfo.REMOTE_REJECTED:
                 msg = "Push is remote rejected"
-            elif info.flags & info.REMOTE_FAILURE:
+            elif pinfo.flags & pinfo.REMOTE_FAILURE:
                 msg = "Push failed remote"
             else:
                 msg = "Push failed"
             logger.error(msg)
             return Message("push", msg, urgency="critical")
 
-        logger.info(f"Push done: {info.summary.strip()}")
+        info('*', 'push', f'{len(commits)} commit(s): {pinfo.summary.strip()}')
         return Message("push", f"Pushed {len(commits)} commit(s)")
 
     def pull(self):
+        debug("*", "pull", "pulling remote data")
         prev_head = self._repo.head.commit
         origin = self._repo.remote(name='origin')
         try:
             pulled = origin.pull()
+            # TODO make a nicer notification on pull
 
             if prev_head != self._repo.head.commit:
-                logger.info(f"Pulled changes, {pulled}")
+                info("*", "pull", f'Pulled changes, {pulled}')
                 return Message("pull", f"Pulled changes, {pulled}")
 
         except git.exc.GitCommandError as e:
@@ -181,14 +186,11 @@ class Sync(SyncAlgorithm):
         # start in a fully synchronised state, unencrypted_data==encrypted_data
         update_encrypted_from_decrypted()
 
-        logger.info(f"Pulling remote data")
         if (msg := self.g.pull()):
             msg.notify(error_interval=self.error_msg_interval)
 
     def sync(self):
         self.pre_sync()
-
-        print(50*'*')
 
         for dotfile in get_encrypted_dotfiles():
 
@@ -197,7 +199,7 @@ class Sync(SyncAlgorithm):
             a_path = dotfile[0].encrypted_path
             b_path = dotfile[1].encrypted_path if len(dotfile) > 1 else None
 
-            logger.debug(f"Checking {len(dotfile)} dotfile(s): {dotfile[0].name}")
+            info("*", "sync", f'{len(dotfile)} version(s): {dotfile[0].name}')
 
             if self.a_is_new(a_path, b_path):
                 if a.check_symlink():
@@ -208,7 +210,7 @@ class Sync(SyncAlgorithm):
                     b.decrypt()
 
             elif self.is_in_sync(a_path, b_path):
-                logger.debug("SYNC: in sync")
+                pass
 
             elif self.a_is_newer(a_path, b_path):
                 a.encrypted_path.unlink()
@@ -235,11 +237,10 @@ class Sync(SyncAlgorithm):
         dotfiles = get_encrypted_dotfiles()
         dotfiles = sum(dotfiles, [])
         self.check_removed(dotfiles)
-        print(50*'*')
+
         self.post_sync()
 
     def post_sync(self):
-        logger.info(f"Pushing to remote origin")
         if (staged := self.g.commit()):
             pass
 

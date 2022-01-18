@@ -50,7 +50,7 @@ logger = logging.getLogger("microdot")
 ch = logging.StreamHandler()
 ch.setFormatter(CustomFormatter())
 logger.addHandler(ch)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 # set config default state
 state = Config(path=Path.home() / '.config/microdot/microdot.conf')

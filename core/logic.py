@@ -1,5 +1,6 @@
 from pathlib import Path
 import logging
+from core.utils import info, debug
 
 logger = logging.getLogger("microdot")
 
@@ -36,13 +37,13 @@ class LastSyncIndex():
             if f"{name}#" in item:
                 self._list.remove(item)
 
-        logger.debug(f"STATUS: list_add: {path}")
+        #logger.debug(f"STATUS: list_add: {path}")
         self._list.append(str(path.absolute()))
         self.write()
 
     def remove(self, path):
         self.read_list()
-        logger.debug(f"STATUS: list_rm: {path}")
+        #logger.debug(f"STATUS: list_rm: {path}")
         self._list.remove(str(path.absolute()))
         self.write()
 
@@ -78,29 +79,31 @@ class SyncAlgorithm(LastSyncIndex):
 
     def a_is_new(self, a, b):
         if not self.in_list(a) and not self.exists(b):
-            logger.debug(f"SYNC: A is new: {a.name}")
+            info(" ", "solution", f"A is new: {a.name}")
             self.add(a)
             return True
 
     def b_is_new(self, a, b):
         if not self.exists(a) and not self.in_list(b):
-            logger.debug(f"SYNC: B is new: {a.name}")
+            info(" ", "solution", f"B is new: {a.name}")
             self.add(b)
             return True
 
     def is_in_sync(self, a, b):
-        return self.in_list(a) and not self.exists(b)
+        if self.in_list(a) and not self.exists(b):
+            info(" ", "solution", 'in sync')
+            return True
 
-    def a_is_newer(self, a, b):
+    def b_is_newer(self, a, b):
         if self.in_list(a) and not self.in_list(b):
-            logger.debug(f"SYNC: B is newer: {a.name} < {b.name}")
+            info(' ', 'solution', f'B is newer: {a.name} < {b.name}')
             self.remove(a)
             self.add(b)
             return True
 
-    def b_is_newer(self, a, b):
+    def a_is_newer(self, a, b):
         if not self.in_list(a) and self.in_list(b):
-            logger.debug(f"SYNC: A is newer: {a.name} > {b.name}")
+            info(' ', 'solution', f'A is newer: {a.name} > {b.name}')
             self.add(a)
             self.remove(b)
             return True
@@ -109,14 +112,16 @@ class SyncAlgorithm(LastSyncIndex):
         """ Solve a conflict by choosing the local data and renaming the other file """
         if self.exists(a) and self.exists(b) and not self.in_list(a) and not self.in_list(b):
             d_hash = a.get_hash(a.path)
+            logger.info("  in conflict")
+            info(' ', 'solution', 'in conflict')
 
             # TODO attach hostname and date for easy identification
             if d_hash == a.hash:
-                logger.info(f"Choosing A: {a.name}")
+                info(' ', 'solution', f"Choosing A: {a.name}")
                 return b
 
             elif d_hash == b.hash:
-                logger.info(f"Choosing B: {b.name}")
+                info(' ', 'solution', f"Choosing B: {b.name}")
                 return a
 
             else:

@@ -229,11 +229,11 @@ class Sync(SyncAlgorithm):
                 # TODO attach hostname and date for easy identification
                 if d_hash == a.hash:
                     info(' ', 'solution', f"Choosing A: {a.name}")
-                    df.rename(b.parent / (b.name + '#CONFLICT'))
+                    b.rename(b.parent / (b.name + '#CONFLICT'))
 
                 elif d_hash == b.hash:
                     info(' ', 'solution', f"Choosing B: {b.name}")
-                    df.rename(a.parent / (a.name + '#CONFLICT'))
+                    a.rename(a.parent / (a.name + '#CONFLICT'))
 
                 else:
                     logger.error("Failed to find a resolution")

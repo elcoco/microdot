@@ -23,7 +23,7 @@
 # TODO fileter out CONFLICT files
 # TODO add inspect function to inspect conflicted encrypted files
 # TODO build better test
-# TODO don't use gitignore, too risky. copy files instead
+# TODO use channel/decrypted for decrypted files/dirs
 
 import logging
 import argparse

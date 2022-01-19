@@ -28,6 +28,8 @@ TMP_FILE_PATH = '/tmp/microdot.tmp.tar'
 
 # characters to use instead of the filsystem unsafe +/
 BASE_64_ALT_CHARS = "@$"
+DECRYPTED_DIR = 'decrypted'
+SCAN_DIR_BLACKLIST = [DECRYPTED_DIR]
 
 """
     You can add a new encrypted file with: $ md --init file.txt -e
@@ -76,8 +78,11 @@ class DotFile():
     def is_file(self):
         return self.path.is_file()
 
-    def link(self, force=False):
+    def link(self, target=None, force=False):
         link = self.link_path
+
+        if not target:
+            target = self.path
 
         if link.exists() and force:
             #logger.info(f"Link path exists, using --force to overwrite: {link}")
@@ -96,8 +101,8 @@ class DotFile():
         if link.exists():
             raise MicrodotError(f"Link exists: {link}")
 
-        link.symlink_to(self.path)
-        debug(self.name, 'linked', f'{link} -> {self.path.name}')
+        link.symlink_to(target)
+        debug(self.name, 'linked', f'{link} -> {target.name}')
         return True
     
     def unlink(self):
@@ -122,19 +127,24 @@ class DotFileEncryptedBaseClass(DotFile):
         # parse filename
         try:
             name, self.hash, _, _ = path.name.split('#')
-            self.path = (path.parent / name)
+            self.path = channel / DECRYPTED_DIR / path.relative_to(channel).parent / name
             self.encrypted_path = path
+            self.name = self.path.relative_to(channel / DECRYPTED_DIR)
         except ValueError:
             logger.info(f"instantiated by init(), allow incomplete data: {path}")
             self.hash = None
             self.encrypted_path = None
-            self.path = path
+            self.path = channel / DECRYPTED_DIR / path.relative_to(channel)
+            self.name = self.path.relative_to(channel / DECRYPTED_DIR)
 
         self.channel = channel
-        self.name = self.path.relative_to(channel)
         self.link_path = Path.home() / self.name
         self.is_encrypted = True
         self._key = key
+
+        if not self.path.parent.is_dir():
+            debug(self.name, 'mkdir', self.path.parent)
+            self.path.parent.mkdir(parents=True)
 
     def encrypt(self, src, key, force=False):
         """ Do some encryption here and write to dest path """
@@ -216,7 +226,7 @@ class DotFileEncrypted(DotFileEncryptedBaseClass):
     def init(self, src):
         """ Move source path to dotfile location """
         md5 = self.get_hash(src)
-        self.encrypted_path = self.path.parent / ENCRYPTED_FILE_FORMAT.format(name=self.name, md5=md5)
+        self.encrypted_path = self.channel / ENCRYPTED_FILE_FORMAT.format(name=self.name, md5=md5)
 
         self.encrypt(src, self._key)
         src.unlink()
@@ -358,6 +368,8 @@ class Channel():
         items = [self.create_obj(f) for f in item.iterdir() if f.is_file()]
 
         for d in [d for d in item.iterdir() if d.is_dir()]:
+            if d.name in SCAN_DIR_BLACKLIST:
+                continue
             if d.name in search_dirs:
                 items += self.search_dotfiles(d, search_dirs)
             else:

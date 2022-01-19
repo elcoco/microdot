@@ -30,6 +30,7 @@ TMP_FILE_PATH = '/tmp/microdot.tmp.tar'
 BASE_64_ALT_CHARS = "@$"
 DECRYPTED_DIR = 'decrypted'
 SCAN_DIR_BLACKLIST = [DECRYPTED_DIR]
+SCAN_CHANNEL_BLACKLIST = [DECRYPTED_DIR]
 
 """
     You can add a new encrypted file with: $ md --init file.txt -e
@@ -127,15 +128,20 @@ class DotFileEncryptedBaseClass(DotFile):
         # parse filename
         try:
             name, self.hash, _, _ = path.name.split('#')
-            self.path = channel / DECRYPTED_DIR / path.relative_to(channel).parent / name
+            self.path = channel.parent / DECRYPTED_DIR / channel.name / path.relative_to(channel).parent / name
             self.encrypted_path = path
-            self.name = self.path.relative_to(channel / DECRYPTED_DIR)
+            self.name = self.path.relative_to(channel.parent / DECRYPTED_DIR / channel.name)
         except ValueError:
             logger.info(f"instantiated by init(), allow incomplete data: {path}")
             self.hash = None
             self.encrypted_path = None
-            self.path = channel / DECRYPTED_DIR / path.relative_to(channel)
-            self.name = self.path.relative_to(channel / DECRYPTED_DIR)
+            self.path = channel.parent / DECRYPTED_DIR / channel.name / path.relative_to(channel)
+            print(">>", channel.parent)
+            print(">>", channel.parent / DECRYPTED_DIR / channel)
+            print(">>", self.path)
+            #self.name = self.path.relative_to(channel.parent / DECRYPTED_DIR / channel)
+            self.name = path.relative_to(channel)
+            print(">>", self.name)
 
         self.channel = channel
         self.link_path = Path.home() / self.name
@@ -450,7 +456,7 @@ class Channel():
 def get_channels(state):
     """ Find all channels in dotfiles dir and create Channel objects """
     path      = state.core.dotfiles_dir
-    blacklist = state.core.channel_blacklist
+    blacklist = state.core.channel_blacklist + SCAN_CHANNEL_BLACKLIST
     return [ Channel(d, state) for d in Path(path).iterdir() if d.is_dir() and d.name not in blacklist ]
 
 def get_channel(name, state, create=False, assume_yes=False):

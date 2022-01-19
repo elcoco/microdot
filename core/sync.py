@@ -115,9 +115,9 @@ class Git():
             debug('git', 'commit', f'{len(diff)} changes: {commit}')
 
             for l in [self.parse_diff(l) for l in staged]:
-                debug('git', 'commit', l)
+                info('git', 'commit', l)
 
-            return '\n'.join([self.parse_diff(l) for l in staged])
+            return [self.parse_diff(l) for l in staged]
 
     def has_pending_commits(self):
         branch  = self._repo.active_branch
@@ -155,17 +155,16 @@ class Git():
         debug("git", "pull", "pulling remote data")
         prev_head = self._repo.head.commit
         origin = self._repo.remote(name='origin')
+
         try:
             pulled = origin.pull()
-            # TODO make a nicer notification on pull
 
             if prev_head != self._repo.head.commit:
-                info("git", "pull", f'Pulled changes, {pulled}')
-
-                changed_files = [ item.a_path for item in self._repo.index.diff(None) ]
-                print(changed_files)
-
-                return Message("pull", f"Pulled changes, {pulled}")
+                msg =  Message("pull", f"Pulled changes")
+                for d in self._repo.index.diff(prev_head):
+                    msg.body += f"{self.parse_diff(d)}\n"
+                    info('git', 'pull', self.parse_diff(d))
+                return msg
 
         except git.exc.GitCommandError as e:
             logger.error("Failed to pull changes")
@@ -263,13 +262,11 @@ class Sync(SyncAlgorithm):
         self.post_sync()
 
     def post_sync(self):
-        if (staged := self.g.commit()):
-            pass
+        if not (staged := self.g.commit()):
+            return
 
         if (msg := self.g.push()):
-            if staged:
-                msg.body = staged
-
+            msg.body = '\n'.join(staged)
             msg.notify(error_interval=self.error_msg_interval)
 
     def watch_repo(self):

@@ -262,11 +262,13 @@ class Sync(SyncAlgorithm):
         self.post_sync()
 
     def post_sync(self):
-        if not (staged := self.g.commit()):
-            return
+        #if not (staged := self.g.commit()):
+        #    return
+        staged = self.g.commit()
 
         if (msg := self.g.push()):
-            msg.body = '\n'.join(staged)
+            if staged:
+                msg.body = '\n'.join(staged)
             msg.notify(error_interval=self.error_msg_interval)
 
     def watch_repo(self):

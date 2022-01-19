@@ -21,6 +21,7 @@
 # DONE use shorter base64 hashes
 # DONE call StatusList LastSyncIndex
 # TODO fileter out CONFLICT files
+# TODO add inspect function to inspect conflicted encrypted files
 
 import logging
 import argparse

@@ -97,7 +97,7 @@ class DotFile():
             raise MicrodotError(f"Link exists: {link}")
 
         link.symlink_to(self.path)
-        debug(self.name, 'linked', f'{link} -> {self.path}')
+        debug(self.name, 'linked', f'{link} -> {self.path.name}')
         return True
     
     def unlink(self):
@@ -226,14 +226,14 @@ class DotFileEncrypted(DotFileEncryptedBaseClass):
     def unlink(self):
         if not DotFile.unlink(self):
             return
-        debug(self.name, 'removed', f'decrypted file: {self.path}')
+        debug(self.name, 'removed', f'decrypted file: {self.path.name}')
         self.path.unlink()
 
     def update(self):
         """ If decrypted directory has changed, update encrypted file """
         if not self.is_changed():
             return
-        info(self.name, 'changed file', self.path)
+        info(self.name, 'f_changed', self.path)
 
         old_encrypted_path = self.encrypted_path
 
@@ -263,7 +263,7 @@ class DotDirEncrypted(DotFileEncryptedBaseClass):
         if not self.is_changed():
             return
 
-        info(self.name, 'changed dir', self.path)
+        info(self.name, 'd_changed', self.path)
 
         # we need to remove this path later
         old_encrypted_path = self.encrypted_path

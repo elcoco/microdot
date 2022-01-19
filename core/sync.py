@@ -83,6 +83,21 @@ class Git():
         except git.exc.InvalidGitRepositoryError as e:
             raise GitException("Invalid Git repository")
 
+    def parse_diff(self, item):
+        """ Parse diff object and construct a message """
+        match item.change_type:
+            case 'A':
+                msg = f"deleted: {item.a_path}"
+            case 'D':
+                msg = f"new: {item.a_path}"
+            case 'M':
+                msg = f"modified: {item.a_path}"
+            case 'R':
+                msg = f"renamed: {item.a_path} -> {item.b_path}"
+            case _:
+                msg = "type {item.change_type}: {item.a_path}"
+        return msg
+
     def list_paths(self, root_tree, path=Path(".")):
         for blob in root_tree.blobs:
             yield path / blob.name
@@ -97,8 +112,12 @@ class Git():
 
         if (diff := self._repo.index.diff("HEAD")):
             commit = self._repo.index.commit(COMMIT_MSG)
-            debug('*', 'commit', f'{len(diff)} changes: {commit}')
-            return staged
+            debug('git', 'commit', f'{len(diff)} changes: {commit}')
+
+            for l in [self.parse_diff(l) for l in staged]:
+                debug('git', 'commit', l)
+
+            return '\n'.join([self.parse_diff(l) for l in staged])
 
     def has_pending_commits(self):
         branch  = self._repo.active_branch
@@ -110,8 +129,6 @@ class Git():
 
         if not (commits := self.has_pending_commits()):
             return
-
-        debug('*', 'push', f'{len(commits)} commit(s)')
 
         try:
             pinfo = origin.push()[0]
@@ -131,11 +148,11 @@ class Git():
             logger.error(msg)
             return Message("push", msg, urgency="critical")
 
-        info('*', 'push', f'{len(commits)} commit(s): {pinfo.summary.strip()}')
+        info('git', 'push', f'{len(commits)} commit(s): {pinfo.summary.strip()}')
         return Message("push", f"Pushed {len(commits)} commit(s)")
 
     def pull(self):
-        debug("*", "pull", "pulling remote data")
+        debug("git", "pull", "pulling remote data")
         prev_head = self._repo.head.commit
         origin = self._repo.remote(name='origin')
         try:
@@ -143,7 +160,7 @@ class Git():
             # TODO make a nicer notification on pull
 
             if prev_head != self._repo.head.commit:
-                info("*", "pull", f'Pulled changes, {pulled}')
+                info("git", "pull", f'Pulled changes, {pulled}')
                 return Message("pull", f"Pulled changes, {pulled}")
 
         except git.exc.GitCommandError as e:
@@ -167,21 +184,6 @@ class Sync(SyncAlgorithm):
         self.interval = interval
         self.error_msg_interval = error_msg_interval
 
-    def parse_diff(self, item):
-        """ Parse diff object and construct a message """
-        match item.change_type:
-            case 'A':
-                msg = f"deleted: {item.a_path}"
-            case 'D':
-                msg = f"new: {item.a_path}"
-            case 'M':
-                msg = f"modified: {item.a_path}"
-            case 'R':
-                msg = f"renamed: {item.a_path} -> {item.b_path}"
-            case _:
-                msg = "type {item.change_type}: {item.a_path}"
-        return msg
-
     def pre_sync(self):
         # start in a fully synchronised state, unencrypted_data==encrypted_data
         update_encrypted_from_decrypted()
@@ -199,7 +201,7 @@ class Sync(SyncAlgorithm):
             a_path = dotfile[0].encrypted_path
             b_path = dotfile[1].encrypted_path if len(dotfile) > 1 else None
 
-            info("*", "sync", f'{len(dotfile)} version(s): {dotfile[0].name}')
+            info("*", "sync", f'{dotfile[0].name} [{len(dotfile)}]')
 
             if self.a_is_new(a_path, b_path):
                 if a.check_symlink():
@@ -260,7 +262,7 @@ class Sync(SyncAlgorithm):
 
         if (msg := self.g.push()):
             if staged:
-                msg.body = '\n'.join([self.parse_diff(l) for l in staged])
+                msg.body = staged
 
             msg.notify(error_interval=self.error_msg_interval)
 

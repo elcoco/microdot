@@ -79,31 +79,31 @@ class SyncAlgorithm(LastSyncIndex):
 
     def a_is_new(self, a, b):
         if not self.in_list(a) and not self.exists(b):
-            info(" ", "solution", f"A is new: {a.name}")
+            info("sync", "new", f"A is new: {a.name}")
             self.add(a)
             return True
 
     def b_is_new(self, a, b):
         if not self.exists(a) and not self.in_list(b):
-            info(" ", "solution", f"B is new: {a.name}")
+            info("sync", "new", f"B is new: {a.name}")
             self.add(b)
             return True
 
     def is_in_sync(self, a, b):
         if self.in_list(a) and not self.exists(b):
-            info(" ", "solution", 'in sync')
+            info("sync", "in_sync", 'in sync')
             return True
 
     def b_is_newer(self, a, b):
         if self.in_list(a) and not self.in_list(b):
-            info(' ', 'solution', f'B is newer: {a.name} < {b.name}')
+            info('sync', 'newer', f'B is newer: {a.name} < {b.name}')
             self.remove(a)
             self.add(b)
             return True
 
     def a_is_newer(self, a, b):
         if not self.in_list(a) and self.in_list(b):
-            info(' ', 'solution', f'A is newer: {a.name} > {b.name}')
+            info('sync', 'newer', f'A is newer: {a.name} > {b.name}')
             self.add(a)
             self.remove(b)
             return True
@@ -111,4 +111,5 @@ class SyncAlgorithm(LastSyncIndex):
     def is_in_conflict(self, a, b):
         """ Solve a conflict by choosing the local data and renaming the other file """
         if self.exists(a) and self.exists(b) and not self.in_list(a) and not self.in_list(b):
+            info('sync', 'conflict', 'in conflict')
             return True

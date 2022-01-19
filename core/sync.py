@@ -201,7 +201,7 @@ class Sync(SyncAlgorithm):
             a_path = dotfile[0].encrypted_path
             b_path = dotfile[1].encrypted_path if len(dotfile) > 1 else None
 
-            info("*", "sync", f'{dotfile[0].name} [{len(dotfile)}]')
+            #info("*", "sync", f'{dotfile[0].name} [{len(dotfile)}]')
 
             if self.a_is_new(a_path, b_path):
                 if a.check_symlink():
@@ -225,16 +225,15 @@ class Sync(SyncAlgorithm):
                     a.decrypt()
 
             elif (df := self.is_in_conflict(a_path, b_path)):
-                info(' ', 'solution', 'in conflict')
                 d_hash = a.get_hash(a.path)
 
                 # TODO attach hostname and date for easy identification
                 if d_hash == a.hash:
-                    info(' ', 'solution', f"Choosing A: {a.name}")
+                    info(' ', 'solve', f"Choosing A: {a.name}")
                     b_path.rename(b_path.parent / (b_path.name + '#CONFLICT'))
 
                 elif d_hash == b.hash:
-                    info(' ', 'solution', f"Choosing B: {b.name}")
+                    info(' ', 'solve', f"Choosing B: {b.name}")
                     a_path.rename(a_path.parent / (a_path.name + '#CONFLICT'))
 
                 else:

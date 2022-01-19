@@ -111,5 +111,5 @@ class SyncAlgorithm(LastSyncIndex):
     def is_in_conflict(self, a, b):
         """ Solve a conflict by choosing the local data and renaming the other file """
         if self.exists(a) and self.exists(b) and not self.in_list(a) and not self.in_list(b):
-            info('sync', 'conflict', 'in conflict')
+            #info('sync', 'conflict', 'in conflict')
             return True

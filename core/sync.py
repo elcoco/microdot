@@ -1,20 +1,20 @@
 import logging
 import datetime
 import time
-import git
-import threading
 from dataclasses import dataclass
-from enum import Enum
 from subprocess import Popen
 from pathlib import Path
 from typing import ClassVar
 
-from core import lock
-from git import Repo
+from core import lock, state
+from core.gitignore import Gitignore
 from core.exceptions import MicrodotError
-from core.channel import update_encrypted_from_decrypted, update_decrypted_from_encrypted, get_encrypted_dotfiles
+from core.channel import update_encrypted_from_decrypted, update_decrypted_from_encrypted, get_encrypted_dotfiles, get_linked_encrypted_dotfiles
 from core.logic import SyncAlgorithm
 from core.utils import debug, info
+
+import git
+from git import Repo
 
 logger = logging.getLogger("microdot")
 
@@ -26,7 +26,7 @@ class GitException(Exception):
 # TODO error notifications
 # DONE separate logic and execution of sync Sync() <> Watch()
 # DONE come up with better name for Watch()
-# TODO better info/debug messages
+# DONE better info/debug messages
 
 @dataclass
 class Message():
@@ -161,6 +161,10 @@ class Git():
 
             if prev_head != self._repo.head.commit:
                 info("git", "pull", f'Pulled changes, {pulled}')
+
+                changed_files = [ item.a_path for item in self._repo.index.diff(None) ]
+                print(changed_files)
+
                 return Message("pull", f"Pulled changes, {pulled}")
 
         except git.exc.GitCommandError as e:
@@ -191,6 +195,10 @@ class Sync(SyncAlgorithm):
         if (msg := self.g.pull()):
             msg.notify(error_interval=self.error_msg_interval)
 
+    def get_conflict_name(self, path):
+        ts = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        return f"{path}#{ts}#CONFLICT"
+
     def sync(self):
         self.pre_sync()
 
@@ -200,8 +208,6 @@ class Sync(SyncAlgorithm):
             b = dotfile[1] if len(dotfile) > 1 else None
             a_path = dotfile[0].encrypted_path
             b_path = dotfile[1].encrypted_path if len(dotfile) > 1 else None
-
-            #info("*", "sync", f'{dotfile[0].name} [{len(dotfile)}]')
 
             if self.a_is_new(a_path, b_path):
                 if a.check_symlink():
@@ -227,19 +233,20 @@ class Sync(SyncAlgorithm):
             elif (df := self.is_in_conflict(a_path, b_path)):
                 d_hash = a.get_hash(a.path)
 
-                # TODO attach hostname and date for easy identification
                 if d_hash == a.hash:
-                    info(' ', 'solve', f"Choosing A: {a.name}")
-                    b_path.rename(b_path.parent / (b_path.name + '#CONFLICT'))
+                    info('sync', 'conflict', f"Choosing A: {a.encrypted_path.name}")
+                    rename_path = b_path.parent / self.get_conflict_name(b_path.name)
+                    b_path.rename(rename_path)
+                    info("sync", "rename", rename_path.name)
 
                 elif d_hash == b.hash:
-                    info(' ', 'solve', f"Choosing B: {b.name}")
-                    a_path.rename(a_path.parent / (a_path.name + '#CONFLICT'))
+                    info('sync', 'conflict', f"Choosing B: {b.encrypted_path.name}")
+                    rename_path = a_path.parent / self.get_conflict_name(a_path.name)
+                    a_path.rename(rename_path)
+                    info("sync", "rename", rename_path.name)
 
                 else:
                     logger.error("Failed to find a resolution")
-
-
             else:
                 logger.error(f"SYNC: unexpected error: {a.name} - {b.name}")
 
@@ -266,13 +273,16 @@ class Sync(SyncAlgorithm):
             msg.notify(error_interval=self.error_msg_interval)
 
     def watch_repo(self):
-        # start with clean state
-        push_interval = 5
-
         try:
             while True:
                 with lock:
                     self.sync()
+
+                # Add linked encrypted files to the gitignore file
+                gitignore = Gitignore(state.core.dotfiles_dir)
+                for dotfile in get_linked_encrypted_dotfiles(state):
+                    gitignore.add(dotfile.channel.name / dotfile.name)
+                gitignore.write()
 
                 time.sleep(self.interval)
 

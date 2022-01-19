@@ -342,7 +342,6 @@ class Channel():
         self.name = path.name
         self.dotfiles = self.search_dotfiles(self._path, state.core.check_dirs)
         self.dotfiles = self.filter_decrypted(self.dotfiles)
-
         self._colors = state.colors
 
     def create_obj(self, path):

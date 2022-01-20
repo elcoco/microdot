@@ -476,18 +476,12 @@ def get_channel(name, state, create=False, assume_yes=False):
 
     raise MicrodotError(f"This should be unreachable, failed to find channel: {name}")
 
-def get_linked_encrypted_dotfiles(state, linked=True):
-    linked = []
-    for channel in get_channels(state):
-        for dotfile in channel.dotfiles:
-            if dotfile.is_encrypted and dotfile.check_symlink():
-                linked.append(dotfile)
-    return linked
+def get_encrypted_dotfiles(linked=False, grouped=False):
+    """ Return encrypted dotfiles
+        grouped=True: doubles are grouped by filename
+        linked=True:  only return dotfiles that are linked """
 
-def get_encrypted_dotfiles(linked=False):
-    """ Return encrypted dotfiles, doubles are grouped by filename """
-
-    groups = []
+    items = []
     keyfunc = lambda x: x.name
 
     for channel in get_channels(state):
@@ -497,13 +491,17 @@ def get_encrypted_dotfiles(linked=False):
             data = [x for x in data if x.check_symlink()]
 
         data = sorted(data, key=keyfunc)
-        for k, g in groupby(data, keyfunc):
-            groups.append(list(g))
 
-    return groups
+        if grouped:
+            for k, g in groupby(data, keyfunc):
+                items.append(list(g))
+        else:
+            items += data
+
+    return items
 
 def update_encrypted_from_decrypted():
-    for df in get_linked_encrypted_dotfiles(state):
+    for df in get_encrypted_dotfiles(linked=True):
         df.update()
 
 def update_decrypted_from_encrypted(paths):

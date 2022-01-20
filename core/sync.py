@@ -8,7 +8,7 @@ from typing import ClassVar
 
 from core import lock, state
 from core.exceptions import MicrodotError
-from core.channel import update_encrypted_from_decrypted, update_decrypted_from_encrypted, get_encrypted_dotfiles, get_linked_encrypted_dotfiles
+from core.channel import update_encrypted_from_decrypted, update_decrypted_from_encrypted, get_encrypted_dotfiles
 from core.logic import SyncAlgorithm
 from core.utils import debug, info
 
@@ -200,7 +200,7 @@ class Sync(SyncAlgorithm):
     def sync(self):
         self.pre_sync()
 
-        for dotfile in get_encrypted_dotfiles():
+        for dotfile in get_encrypted_dotfiles(grouped=True):
             a = dotfile[0]
             b = dotfile[1] if len(dotfile) > 1 else None
             a_path = dotfile[0].encrypted_path
@@ -254,7 +254,6 @@ class Sync(SyncAlgorithm):
 
         # flatten list
         dotfiles = get_encrypted_dotfiles()
-        dotfiles = sum(dotfiles, [])
         self.check_removed(dotfiles)
 
         self.post_sync()

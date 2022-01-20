@@ -20,7 +20,7 @@
 
 # DONE use shorter base64 hashes
 # DONE call StatusList LastSyncIndex
-# TODO fileter out CONFLICT files
+# TODO filter out CONFLICT files
 # TODO add inspect function to inspect conflicted encrypted files
 # TODO build better test
 # DONE use channel/decrypted for decrypted files/dirs
@@ -31,7 +31,7 @@ from pathlib import Path
 
 from core.gitignore import Gitignore
 from core import state, lock
-from core.channel import get_channels, get_channel, get_linked_encrypted_dotfiles
+from core.channel import get_channels, get_channel
 from core.exceptions import MicrodotError
 from core.sync import Sync
 

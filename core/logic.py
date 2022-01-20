@@ -2,6 +2,7 @@ from pathlib import Path
 import logging
 from core.utils import info, debug
 from core import state
+from core.channel import DotFileEncryptedBaseClass
 
 logger = logging.getLogger("microdot")
 
@@ -63,9 +64,13 @@ class SyncAlgorithm(LastSyncIndex):
             if not path:
                 continue
 
+            # TODO create dotfile object and get all paths from here (find a way to get channel path)
+            #df = DotFileEncryptedBaseClass(Path(path), chan, None)
+
             encrypted_path = Path(path)
             name = encrypted_path.name.split('#')[0]
-            decrypted_path = Path(path).parent / name
+
+            # TODO this is making all sorts assumptions, ugly!
             decrypted_path = (state.core.dotfiles_dir / 'decrypted' / Path(path).relative_to(state.core.dotfiles_dir)).parent / name
 
             # see if status list entry has a corresponding file on disk
@@ -75,26 +80,25 @@ class SyncAlgorithm(LastSyncIndex):
             else:
                 if decrypted_path.exists():
                     decrypted_path.unlink()
-                    info("sync," "removed", decrypted_path)
+                    info("sync", "deleted", decrypted_path)
 
-                debug("sync", "removed", encrypted_path)
                 self.remove(encrypted_path)
 
     def a_is_new(self, a, b):
         if not self.in_list(a) and not self.exists(b):
-            info("sync", "new", f"A is new: {a.name}")
+            info("sync", "new", f"A: {a.name}")
             self.add(a)
             return True
 
     def b_is_new(self, a, b):
         if not self.exists(a) and not self.in_list(b):
-            info("sync", "new", f"B is new: {a.name}")
+            info("sync", "new", f"B: {b.name}")
             self.add(b)
             return True
 
     def is_in_sync(self, a, b):
         if self.in_list(a) and not self.exists(b):
-            info("sync", "in_sync", 'in sync')
+            info("sync", "in_sync", a.name)
             return True
 
 #    def b_is_newer(self, a, b):

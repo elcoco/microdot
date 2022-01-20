@@ -5,6 +5,9 @@ import logging
 
 logger = logging.getLogger("microdot")
 
+ACTION_JUST = 10
+CATEGORY_JUST = 10
+
 class Lock():
     """ Does lock things """
     def __init__(self, path):
@@ -77,18 +80,20 @@ def confirm(msg, assume_yes=False):
     if input(msg + ' [y/N] ').lower() == 'y':
         return True
 
-def info(file, task, msg):
-    file = colorize(file, 'green')
+def info(category: str, action: str, msg: str):
+    category = str(category).ljust(CATEGORY_JUST)
+    category = colorize(category, 'green')
 
-    task = task.ljust(10)
-    task = colorize(task, 'magenta')
+    action = action.ljust(ACTION_JUST)
+    action = colorize(action, 'magenta')
 
     msg = colorize(msg, 'white')
-    logger.info(f"{file} {task} {msg}")
+    logger.info(f"{category} {action} {msg}")
 
-def debug(file, task, msg):
-    file = colorize(file, 'green')
-    task = task.ljust(10)
-    task = colorize(task, 'magenta')
+def debug(category: str, action: str, msg: str):
+    category = str(category).ljust(CATEGORY_JUST)
+    category = colorize(category, 'green')
+    action = action.ljust(ACTION_JUST)
+    action = colorize(action, 'magenta')
     msg = colorize(msg, 'white')
-    logger.debug(f"{file} {task} {msg}")
+    logger.debug(f"{category} {action} {msg}")

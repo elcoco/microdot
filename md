@@ -24,6 +24,9 @@
 # TODO add inspect function to inspect conflicted encrypted files
 # TODO build better test
 # DONE use channel/decrypted for decrypted files/dirs
+# TODO when internet is back after a cut, wait a random amount of time.
+#      this way we don't get conflicts when all devices start pushing at the same time
+# TODO add info messages on normal operations, link, unlink etc
 
 import logging
 import argparse

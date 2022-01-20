@@ -217,15 +217,15 @@ class Sync(SyncAlgorithm):
             elif self.is_in_sync(a_path, b_path):
                 pass
 
-            elif self.a_is_newer(a_path, b_path):
-                a.encrypted_path.unlink()
-                if a.check_symlink():
-                    b.decrypt()
+            #elif self.a_is_newer(a_path, b_path):
+            #    a.encrypted_path.unlink()
+            #    if a.check_symlink():
+            #        b.decrypt()
 
-            elif self.b_is_newer(a_path, b_path):
-                b.encrypted_path.unlink()
-                if a.check_symlink():
-                    a.decrypt()
+            #elif self.b_is_newer(a_path, b_path):
+            #    b.encrypted_path.unlink()
+            #    if a.check_symlink():
+            #        a.decrypt()
 
             elif (df := self.is_in_conflict(a_path, b_path)):
                 d_hash = a.get_hash(a.path)
@@ -259,6 +259,9 @@ class Sync(SyncAlgorithm):
         self.post_sync()
 
     def post_sync(self):
+        # TODO unpushed commits won't show up in notification because it only
+        #      shows the current commit
+
         #if not (staged := self.g.commit()):
         #    return
         staged = self.g.commit()

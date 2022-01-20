@@ -97,19 +97,19 @@ class SyncAlgorithm(LastSyncIndex):
             info("sync", "in_sync", 'in sync')
             return True
 
-    def b_is_newer(self, a, b):
-        if self.in_list(a) and not self.in_list(b):
-            info('sync', 'newer', f'B is newer: {a.name} < {b.name}')
-            self.remove(a)
-            self.add(b)
-            return True
-
-    def a_is_newer(self, a, b):
-        if not self.in_list(a) and self.in_list(b):
-            info('sync', 'newer', f'A is newer: {a.name} > {b.name}')
-            self.add(a)
-            self.remove(b)
-            return True
+#    def b_is_newer(self, a, b):
+#        if self.in_list(a) and not self.in_list(b):
+#            info('sync', 'newer', f'B is newer: {a.name} < {b.name}')
+#            self.remove(a)
+#            self.add(b)
+#            return True
+#
+#    def a_is_newer(self, a, b):
+#        if not self.in_list(a) and self.in_list(b):
+#            info('sync', 'newer', f'A is newer: {a.name} > {b.name}')
+#            self.add(a)
+#            self.remove(b)
+#            return True
 
     def is_in_conflict(self, a, b):
         """ Solve a conflict by choosing the local data and renaming the other file """

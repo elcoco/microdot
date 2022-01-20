@@ -83,6 +83,7 @@ class SyncAlgorithm(LastSyncIndex):
                     info("sync", "deleted", decrypted_path)
 
                 self.remove(encrypted_path)
+                info("sync", "rmlist", decrypted_path)
 
     def a_is_new(self, a, b):
         if not self.in_list(a) and not self.exists(b):

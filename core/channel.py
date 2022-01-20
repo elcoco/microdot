@@ -141,6 +141,11 @@ class DotFileEncryptedBaseClass(DotFile):
             self.encrypted_path = path
             self.name = self.path.relative_to(channel.parent / DECRYPTED_DIR / channel.name)
             self.timestamp = datetime.datetime.strptime(ts, TIMESTAMP_FORMAT)
+
+            # TODO solve bug where after a dir update, every update the program thinks there is changed data
+            #      sometimes it happends
+            #if self.is_dir(): self.debug("init")
+
         except ValueError:
             # instantiated by self.init(), allow incomplete data. missing data will be added later
             self.hash = None
@@ -162,7 +167,7 @@ class DotFileEncryptedBaseClass(DotFile):
     def encrypt(self, src, key, force=False):
         """ Do some encryption here and write to self.encrypted_path """
 
-        # create tmp file
+        # if dir, compress dir into tmp tar file
         if src.is_dir():
             src = self.get_tar(src)
 
@@ -206,14 +211,26 @@ class DotFileEncryptedBaseClass(DotFile):
         self.decrypt()
         DotFile.link(self, force=force)
 
+    def debug(self, msg):
+        if self.path.exists():
+            sha = self.get_hash(self.path)
+        else:
+            sha = "NOEXIST"
+
+        print(f"{msg} file hash:", self.hash)
+        print(f"{msg} cont hash:", sha)
+        print(f"{msg} encr path:", self.encrypted_path)
+
+
     def update(self):
         """ If decrypted directory has changed, update encrypted file """
         if not self.is_changed():
             return
-        info(self.name, 'f_changed', self.path)
+        info(self.name, 'changed', self.path)
 
         old_encrypted_path = self.encrypted_path
         self.encrypted_path = self.get_encrypted_path(self.channel, self.name)
+
         self.encrypt(self.path, self._key, force=True)
         self.unlink()
         old_encrypted_path.unlink()
@@ -306,6 +323,7 @@ class DotDirEncrypted(DotFileEncryptedBaseClass):
         # cant use pathlib's replace because files need to be on same filesystem
         #logger.debug(f"Decrypt: moving: {tmp_dir / self.name} -> {self.path}")
         shutil.move((tmp_dir / self.name), self.path)
+        debug(self.name, "moved", f"{tmp_dir/self.name} -> {self.path}")
 
         #logger.debug(f"Decrypt: removing tmp file: {tmp_file}")
         tmp_file.unlink()

@@ -35,6 +35,7 @@
 # DONE give nice list of conflicted files when listing
 # TODO maybe move all constants to global state object
 
+
 import logging
 import argparse
 from pathlib import Path

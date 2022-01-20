@@ -229,7 +229,6 @@ class DotFileEncryptedBaseClass(DotFile):
         info(self.name, 'changed', self.path)
 
         old_encrypted_path = self.encrypted_path
-        #self.encrypted_path = self.get_encrypted_path(self.path)
         self.encrypted_path = self.get_encrypted_path(self.channel, self.name)
 
         self.encrypt(self.path, self._key, force=True)
@@ -253,8 +252,8 @@ class DotFileEncryptedBaseClass(DotFile):
         m.update(path.name.encode())
 
         if path.is_dir():
-            for p in path.rglob("*"):
-                print(">> order matters?:", p)
+            for p in sorted(path.rglob("*"), key=lambda x: x.name):
+                print(p)
                 m.update(p.read_bytes())
                 m.update(p.name.encode())
         else:

@@ -476,6 +476,8 @@ def get_channel(name, state, create=False, assume_yes=False):
 
     raise MicrodotError(f"This should be unreachable, failed to find channel: {name}")
 
+# TODO below should be part of channel class??
+
 def get_encrypted_dotfiles(linked=False, grouped=False):
     """ Return encrypted dotfiles
         grouped=True: doubles are grouped by filename

@@ -76,7 +76,7 @@ class Config(NestedNamespace):
                 # update attributes
                 self.update(self._config)
 
-                logger.info(f"Loaded config file, path={path}")
+                logger.debug(f"Loaded config file, path={path}")
             return True
         except yaml.YAMLError as e:
             raise ConfigException(f"Failed to load YAML in config file: {path}\n{e}")

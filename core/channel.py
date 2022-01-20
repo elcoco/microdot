@@ -8,7 +8,6 @@ import tempfile
 from itertools import groupby
 
 from core.exceptions import MicrodotError
-from core import gitignore
 from core import state
 
 from core.utils import confirm, colorize, debug, info

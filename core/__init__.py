@@ -3,6 +3,7 @@ import logging
 
 from core.config import Config
 from core.utils import Lock
+from core.gitignore import Gitignore
 #from core.sync import StatusList
 
 from cryptography.fernet import Fernet
@@ -89,5 +90,3 @@ state.do_force      = False
 state.do_sync       = False
 
 lock = Lock('/tmp/microdot.lock')
-
-#status_list = StatusList()

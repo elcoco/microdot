@@ -84,6 +84,10 @@ class App():
     def run(self):
         self.parse_args(state)
 
+        # Add linked encrypted files to the gitignore file
+        gitignore = Gitignore(state.core.dotfiles_dir)
+        gitignore.write()
+
         if state.do_link_all:
             state.channel.link_all(force=state.do_force, assume_yes=state.do_assume_yes)
 
@@ -132,12 +136,6 @@ class App():
                 state.channel.list()
             return
 
-        # Add linked encrypted files to the gitignore file
-        gitignore = Gitignore(state.core.dotfiles_dir)
-        for dotfile in get_linked_encrypted_dotfiles(state):
-            gitignore.add(dotfile.channel.name / dotfile.name)
-
-        gitignore.write()
 
 
 if __name__ == "__main__":

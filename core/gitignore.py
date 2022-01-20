@@ -2,6 +2,7 @@
 
 import logging
 from pathlib import Path
+from core.utils import debug
 
 logger = logging.getLogger("microdot")
 
@@ -16,10 +17,17 @@ class Gitignore():
         self._lines.append(str(line))
 
     def list(self):
-        logger.info("listing:")
         for i,line in enumerate(self._lines):
-            logger.info(f"{i}: {line}")
+            debug('gitignore', 'list', f"{i}: {line}")
+
+    def read(self):
+        for l in self._path.read_text().split():
+            if l not in self._lines:
+                self._lines.append(l)
 
     def write(self):
+        if self._path.exists():
+            self.read()
         self._path.write_text('\n'.join(self._lines))
-        logger.info(f"Wrote .gitignore to {self._path}")
+        self.list()
+        debug('gitignore', 'write', self._path)

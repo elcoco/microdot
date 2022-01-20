@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import ClassVar
 
 from core import lock, state
-from core.gitignore import Gitignore
 from core.exceptions import MicrodotError
 from core.channel import update_encrypted_from_decrypted, update_decrypted_from_encrypted, get_encrypted_dotfiles, get_linked_encrypted_dotfiles
 from core.logic import SyncAlgorithm
@@ -276,12 +275,6 @@ class Sync(SyncAlgorithm):
             while True:
                 with lock:
                     self.sync()
-
-                # Add linked encrypted files to the gitignore file
-                gitignore = Gitignore(state.core.dotfiles_dir)
-                for dotfile in get_linked_encrypted_dotfiles(state):
-                    gitignore.add(dotfile.channel.name / dotfile.name)
-                gitignore.write()
 
                 time.sleep(self.interval)
 

@@ -142,10 +142,6 @@ class DotFileEncryptedBaseClass(DotFile):
             self.name = self.path.relative_to(channel.parent / DECRYPTED_DIR / channel.name)
             self.timestamp = datetime.datetime.strptime(ts, TIMESTAMP_FORMAT)
 
-            # TODO solve bug where after a dir update, every update the program thinks there is changed data
-            #      sometimes it happends
-            #if self.is_dir(): self.debug("init")
-
         except ValueError:
             # instantiated by self.init(), allow incomplete data. missing data will be added later
             self.hash = None
@@ -252,6 +248,7 @@ class DotFileEncryptedBaseClass(DotFile):
         m.update(path.name.encode())
 
         if path.is_dir():
+            # sometimes files are read in a different order so sort first!
             for p in sorted(path.rglob("*"), key=lambda x: x.name):
                 print(p)
                 m.update(p.read_bytes())

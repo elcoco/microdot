@@ -230,6 +230,7 @@ class DotFileEncryptedBaseClass(DotFile):
 
         old_encrypted_path = self.encrypted_path
         #self.encrypted_path = self.get_encrypted_path(self.path)
+        self.encrypted_path = self.get_encrypted_path(self.channel, self.name)
 
         self.encrypt(self.path, self._key, force=True)
         self.unlink()

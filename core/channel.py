@@ -253,6 +253,7 @@ class DotFileEncryptedBaseClass(DotFile):
 
         if path.is_dir():
             for p in path.rglob("*"):
+                print(">> order matters?:", p)
                 m.update(p.read_bytes())
                 m.update(p.name.encode())
         else:

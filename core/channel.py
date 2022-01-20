@@ -93,11 +93,12 @@ class DotFile():
         if not target:
             target = self.path
 
+        if link.is_symlink():
+            link.unlink()
+
         if link.exists() and force:
-            #logger.info(f"Link path exists, using --force to overwrite: {link}")
+            logger.info(f"Link path exists, using --force to overwrite: {link}")
             if link.is_file():
-                os.remove(link)
-            elif link.is_symlink():
                 link.unlink()
             elif link.is_dir():
                 shutil.rmtree(link)
@@ -141,7 +142,7 @@ class DotFileEncryptedBaseClass(DotFile):
             self.name = self.path.relative_to(channel.parent / DECRYPTED_DIR / channel.name)
             self.timestamp = datetime.datetime.strptime(ts, TIMESTAMP_FORMAT)
         except ValueError:
-            logger.info(f"instantiated by init(), allow incomplete data: {path}")
+            # instantiated by self.init(), allow incomplete data. missing data will be added later
             self.hash = None
             self.path = channel.parent / DECRYPTED_DIR / channel.name / path.relative_to(channel)
             self.name = path.relative_to(channel)
@@ -153,12 +154,18 @@ class DotFileEncryptedBaseClass(DotFile):
         self.is_encrypted = True
         self._key = key
 
+        # ensure decrypted dir exists
         if not self.path.parent.is_dir():
             debug(self.name, 'mkdir', self.path.parent)
             self.path.parent.mkdir(parents=True)
 
     def encrypt(self, src, key, force=False):
-        """ Do some encryption here and write to dest path """
+        """ Do some encryption here and write to self.encrypted_path """
+
+        # create tmp file
+        if src.is_dir():
+            src = self.get_tar(src)
+
         if self.encrypted_path.exists():
             if force:
                 if self.is_file():
@@ -170,6 +177,10 @@ class DotFileEncryptedBaseClass(DotFile):
 
         fernet = Fernet(key)
         encrypted = fernet.encrypt(src.read_bytes())
+
+        # cleanyp tmp file
+        if src.is_dir():
+            src.unlink()
 
         self.encrypted_path.write_bytes(encrypted)
         debug(self.name, 'encrypted', f'{src.name} -> {self.encrypted_path}')
@@ -192,14 +203,26 @@ class DotFileEncryptedBaseClass(DotFile):
         debug(self.name, 'decrypted', f'{self.encrypted_path.name} -> {dest}')
 
     def link(self, force=False):
-        if self.link_path.is_symlink():
-            raise MicrodotError(f"Dotfile already linked: {self.link_path}")
         self.decrypt()
         DotFile.link(self, force=force)
 
+    def update(self):
+        """ If decrypted directory has changed, update encrypted file """
+        if not self.is_changed():
+            return
+        info(self.name, 'f_changed', self.path)
+
+        old_encrypted_path = self.encrypted_path
+        self.encrypted_path = self.get_encrypted_path(self.channel, self.name)
+        self.encrypt(self.path, self._key, force=True)
+        self.unlink()
+        old_encrypted_path.unlink()
+        self.link()
+
+        info(self.name, 'updated', f'{self.name} -> {self.encrypted_path.name}')
+
     def get_tar(self, src):
         """ Compress path into tar archive and save in tmp file """
-        # source is a directory, first create tar archive
         tmp_file = Path(tempfile.mktemp())
 
         with tarfile.open(tmp_file, 'w') as f:
@@ -226,7 +249,10 @@ class DotFileEncryptedBaseClass(DotFile):
     def get_encrypted_path(self, channel, name):
         md5 = self.get_hash(Path.home() / name)
         ts = datetime.datetime.utcnow().strftime(TIMESTAMP_FORMAT)
-        return channel / ENCRYPTED_FILE_FORMAT.format(name=name, ts=ts, md5=md5)
+        if self.is_dir():
+            return channel / ENCRYPTED_DIR_FORMAT.format(name=name, ts=ts, md5=md5)
+        else:
+            return channel / ENCRYPTED_FILE_FORMAT.format(name=name, ts=ts, md5=md5)
 
 
 class DotFileEncrypted(DotFileEncryptedBaseClass):
@@ -249,23 +275,8 @@ class DotFileEncrypted(DotFileEncryptedBaseClass):
     def unlink(self):
         if not DotFile.unlink(self):
             return
-        debug(self.name, 'removed', f'decrypted file: {self.path.name}')
         self.path.unlink()
-
-    def update(self):
-        """ If decrypted directory has changed, update encrypted file """
-        if not self.is_changed():
-            return
-        info(self.name, 'f_changed', self.path)
-
-        old_encrypted_path = self.encrypted_path
-        self.encrypted_path = self.get_encrypted_path(self.channel, self.name)
-        self.encrypt(self.path, self._key, force=True)
-        self.unlink()
-        old_encrypted_path.unlink()
-        self.link()
-
-        info(self.name, 'updated', f'{self.name} -> {self.encrypted_path.name}')
+        debug(self.name, 'removed', f'decrypted file: {self.path.name}')
 
 
 class DotDirEncrypted(DotFileEncryptedBaseClass):
@@ -277,30 +288,6 @@ class DotDirEncrypted(DotFileEncryptedBaseClass):
 
     def is_dir(self):
         return True
-
-    def update(self):
-        """ If decrypted directory has changed, update encrypted file """
-        if not self.is_changed():
-            return
-
-        info(self.name, 'd_changed', self.path)
-
-        # we need to remove this path later
-        old_encrypted_path = self.encrypted_path
-
-        md5 = self.get_hash(self.path)
-        self.encrypted_path = self.path.parent / ENCRYPTED_DIR_FORMAT.format(name=self.name, md5=md5)
-
-        #logger.debug(f"Update: using path: {self.path}")
-        tmp_file = self.get_tar(self.path)
-        self.encrypt(tmp_file, self._key, force=True)
-        tmp_file.unlink()
-
-        self.unlink()
-        old_encrypted_path.unlink()
-        self.link()
-
-        info(self.name, 'updated', f'{self.name} -> {self.encrypted_path.name}')
 
     def decrypt(self):
         tmp_dir = Path(tempfile.mkdtemp())
@@ -325,17 +312,9 @@ class DotDirEncrypted(DotFileEncryptedBaseClass):
 
     def init(self, src):
         """ Move source path to dotfile location """
-        md5 = self.get_hash(src)
-        self.encrypted_path = self.path.parent / ENCRYPTED_DIR_FORMAT.format(name=self.name, md5=md5)
-
-        #logger.debug(f"Init: using path: {src}")
-
-        tmp_file = self.get_tar(src)
-        self.encrypt(tmp_file, self._key)
-        tmp_file.unlink()
-
+        self.encrypt(src, self._key)
         shutil.rmtree(src, ignore_errors=False, onerror=None)
-        #logger.info(f"Init: removed original directory: {src}")
+        debug(self.name, 'init', f'removed original dir: {src}')
         self.link()
 
     def unlink(self):
@@ -343,6 +322,7 @@ class DotDirEncrypted(DotFileEncryptedBaseClass):
             return
         #logger.info(f"Unlink: removing decrypted dir: {self.path}")
         shutil.rmtree(self.path, ignore_errors=False, onerror=None)
+        debug(self.name, 'removed', f'decrypted dir: {self.path.name}')
         
 
 class Channel():
@@ -412,7 +392,8 @@ class Channel():
             color = self._colors.linked if item.check_symlink() else self._colors.unlinked
 
             if item.is_encrypted:
-                print(colorize(f"[E] {item.name}", color))
+                print(colorize(f"[E] {item.name}", color), end='')
+                print(colorize(f" :: {item.timestamp}", 'magenta'))
             elif item.is_dir():
                 print(colorize(f"[D] {item.name}", color))
             else:

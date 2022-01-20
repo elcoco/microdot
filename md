@@ -51,7 +51,7 @@ logger = logging.getLogger("microdot")
 
 class App():
     def parse_args(self, state):
-        parser = argparse.ArgumentParser(description='Static site generator.')
+        parser = argparse.ArgumentParser(description='Microdot :: Manage dotfiles in style')
 
         parser.add_argument('-c', '--channel',      help='channel', metavar='NAME', default='common')
         parser.add_argument('-l', '--link',         help='link dotfile', metavar='DOT', default=None)
@@ -157,7 +157,6 @@ class App():
             for state.channel in get_channels(state):
                 state.channel.list()
             return
-
 
 
 if __name__ == "__main__":

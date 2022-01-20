@@ -6,6 +6,7 @@ import base64
 import tarfile
 import tempfile
 from itertools import groupby
+import datetime
 
 from core.exceptions import MicrodotError
 from core import state
@@ -21,15 +22,23 @@ except ImportError as e:
 
 logger = logging.getLogger("microdot")
 
-ENCRYPTED_DIR_FORMAT  = "{name}#{md5}#D#CRYPT"
-ENCRYPTED_FILE_FORMAT  = "{name}#{md5}#F#CRYPT"
-TMP_FILE_PATH = '/tmp/microdot.tmp.tar'
+ENCRYPTED_DIR_FORMAT  = "{name}#{md5}#{ts}#D#CRYPT"
+ENCRYPTED_FILE_FORMAT  = "{name}#{md5}#{ts}#F#CRYPT"
+
+# TODO this extension is used in sync but constant is not accessible
+CONFLICT_EXT = "#CONFLICT"
 
 # characters to use instead of the filsystem unsafe +/
 BASE_64_ALT_CHARS = "@$"
+
+# dirname relative to dotfiles dir to store decrypted files/dirs in
 DECRYPTED_DIR = 'decrypted'
+
+# skip these dirst when searching for channels and dotfiles
 SCAN_DIR_BLACKLIST = [DECRYPTED_DIR]
 SCAN_CHANNEL_BLACKLIST = [DECRYPTED_DIR]
+
+TIMESTAMP_FORMAT = "%Y%m%d%H%M%S"
 
 """
     You can add a new encrypted file with: $ md --init file.txt -e
@@ -126,16 +135,18 @@ class DotFileEncryptedBaseClass(DotFile):
     def __init__(self, path, channel, key):
         # parse filename
         try:
-            name, self.hash, _, _ = path.name.split('#')
+            name, self.hash, ts,  _, _ = path.name.split('#')
             self.path = channel.parent / DECRYPTED_DIR / channel.name / path.relative_to(channel).parent / name
             self.encrypted_path = path
             self.name = self.path.relative_to(channel.parent / DECRYPTED_DIR / channel.name)
+            self.timestamp = datetime.datetime.strptime(ts, TIMESTAMP_FORMAT)
         except ValueError:
             logger.info(f"instantiated by init(), allow incomplete data: {path}")
             self.hash = None
             self.path = channel.parent / DECRYPTED_DIR / channel.name / path.relative_to(channel)
             self.name = path.relative_to(channel)
             self.encrypted_path = self.get_encrypted_path(channel, self.name)
+            self.timestamp = datetime.datetime.utcnow()
 
         self.channel = channel
         self.link_path = Path.home() / self.name
@@ -214,7 +225,8 @@ class DotFileEncryptedBaseClass(DotFile):
 
     def get_encrypted_path(self, channel, name):
         md5 = self.get_hash(Path.home() / name)
-        return channel / ENCRYPTED_FILE_FORMAT.format(name=name, md5=md5)
+        ts = datetime.datetime.utcnow().strftime(TIMESTAMP_FORMAT)
+        return channel / ENCRYPTED_FILE_FORMAT.format(name=name, ts=ts, md5=md5)
 
 
 class DotFileEncrypted(DotFileEncryptedBaseClass):
@@ -341,6 +353,7 @@ class Channel():
         self.dotfiles = self.search_dotfiles(self._path, state.core.check_dirs)
         self.dotfiles = self.filter_decrypted(self.dotfiles)
         self._colors = state.colors
+        self.conflicts = self.search_conflicts(self._path, state.core.check_dirs)
 
     def create_obj(self, path):
         """ Create a brand new DotFile object """
@@ -362,7 +375,7 @@ class Channel():
 
     def search_dotfiles(self, item, search_dirs):
         # recursive find of files and dirs in channel when file/dir is in search_dirs
-        items = [self.create_obj(f) for f in item.iterdir() if f.is_file()]
+        items = [self.create_obj(f) for f in item.iterdir() if f.is_file() and not f.name.endswith(CONFLICT_EXT)]
 
         for d in [d for d in item.iterdir() if d.is_dir()]:
             if d.name in SCAN_DIR_BLACKLIST:
@@ -370,6 +383,17 @@ class Channel():
             if d.name in search_dirs:
                 items += self.search_dotfiles(d, search_dirs)
             else:
+                items.append(self.create_obj(d))
+        return sorted(items, key=lambda item: item.name)
+
+    def search_conflicts(self, item, search_dirs):
+        # recursive find of files and dirs in channel when file/dir is in search_dirs
+        items = [self.create_obj(f) for f in item.iterdir() if f.is_file() and f.name.endswith(CONFLICT_EXT)]
+
+        for d in [d for d in item.iterdir() if d.is_dir()]:
+            if d.name in SCAN_DIR_BLACKLIST:
+                continue
+            if d.name not in search_dirs:
                 items.append(self.create_obj(d))
         return sorted(items, key=lambda item: item.name)
 
@@ -393,6 +417,9 @@ class Channel():
                 print(colorize(f"[D] {item.name}", color))
             else:
                 print(colorize(f"[F] {item.name}", color))
+
+        for item in self.conflicts:
+            print(colorize(f"[C] {item.name}", self._colors.conflict))
 
     def get_dotfile(self, name):
         for df in self.dotfiles:

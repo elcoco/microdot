@@ -66,6 +66,7 @@ state.colors.channel_name    = 'magenta'
 state.colors.linked          = 'green'
 state.colors.unlinked        = 'default'
 state.colors.encrypted       = 'cyan'
+state.colors.conflict        = 'red'
 state.git                    = {}
 state.git.interval           = 15
 state.notifications          = {}

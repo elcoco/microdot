@@ -194,8 +194,7 @@ class Sync(SyncAlgorithm):
             msg.notify(error_interval=self.error_msg_interval)
 
     def get_conflict_name(self, path):
-        ts = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%S")
-        return f"{path}#{ts}#CONFLICT"
+        return f"{path}#CONFLICT"
 
     def sync(self):
         self.pre_sync()

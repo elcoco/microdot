@@ -27,6 +27,13 @@
 # TODO when internet is back after a cut, wait a random amount of time.
 #      this way we don't get conflicts when all devices start pushing at the same time
 # DONE add info messages on normal operations, link, unlink etc
+# TODO link/unlink all exists when files are already linked
+#      when answering question a list of unlinked/linked files should display
+# TODO when linking, if a link already exists but doesn't point to correct file
+#      md starts complaining
+# TODO catch keyboard interrupt in link/unlink etc
+# DONE give nice list of conflicted files when listing
+# TODO maybe move all constants to global state object
 
 import logging
 import argparse
@@ -93,10 +100,16 @@ class App():
         gitignore.write()
 
         if state.do_link_all:
-            state.channel.link_all(force=state.do_force, assume_yes=state.do_assume_yes)
+            try:
+                state.channel.link_all(force=state.do_force, assume_yes=state.do_assume_yes)
+            except MicrodotError as e:
+                logger.error(e)
 
         elif state.do_unlink_all:
-            state.channel.unlink_all(assume_yes=state.do_assume_yes)
+            try:
+                state.channel.unlink_all(assume_yes=state.do_assume_yes)
+            except MicrodotError as e:
+                logger.error(e)
 
         elif state.do_link:
             if not (dotfile := state.channel.get_dotfile(state.do_link)):

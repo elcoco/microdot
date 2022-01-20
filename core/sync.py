@@ -201,7 +201,6 @@ class Sync(SyncAlgorithm):
         self.pre_sync()
 
         for dotfile in get_encrypted_dotfiles():
-
             a = dotfile[0]
             b = dotfile[1] if len(dotfile) > 1 else None
             a_path = dotfile[0].encrypted_path

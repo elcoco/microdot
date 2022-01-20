@@ -1,6 +1,7 @@
 from pathlib import Path
 import logging
 from core.utils import info, debug
+from core import state
 
 logger = logging.getLogger("microdot")
 
@@ -64,17 +65,19 @@ class SyncAlgorithm(LastSyncIndex):
 
             encrypted_path = Path(path)
             name = encrypted_path.name.split('#')[0]
-            path = Path(path).parent / name
+            decrypted_path = Path(path).parent / name
+            decrypted_path = (state.core.dotfiles_dir / 'decrypted' / Path(path).relative_to(state.core.dotfiles_dir)).parent / name
 
             # see if status list entry has a corresponding file on disk
             for dotfile in dotfiles:
-                if path == dotfile.path:
+                if decrypted_path == dotfile.path:
                     break
             else:
-                if path.exists():
-                    info("*", 'removing', path)
-                    path.unlink()
+                if decrypted_path.exists():
+                    decrypted_path.unlink()
+                    info("sync," "removed", decrypted_path)
 
+                debug("sync", "removed", encrypted_path)
                 self.remove(encrypted_path)
 
     def a_is_new(self, a, b):

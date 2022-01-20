@@ -133,14 +133,9 @@ class DotFileEncryptedBaseClass(DotFile):
         except ValueError:
             logger.info(f"instantiated by init(), allow incomplete data: {path}")
             self.hash = None
-            self.encrypted_path = None
             self.path = channel.parent / DECRYPTED_DIR / channel.name / path.relative_to(channel)
-            print(">>", channel.parent)
-            print(">>", channel.parent / DECRYPTED_DIR / channel)
-            print(">>", self.path)
-            #self.name = self.path.relative_to(channel.parent / DECRYPTED_DIR / channel)
             self.name = path.relative_to(channel)
-            print(">>", self.name)
+            self.encrypted_path = self.get_encrypted_path(channel, self.name)
 
         self.channel = channel
         self.link_path = Path.home() / self.name
@@ -166,7 +161,7 @@ class DotFileEncryptedBaseClass(DotFile):
         encrypted = fernet.encrypt(src.read_bytes())
 
         self.encrypted_path.write_bytes(encrypted)
-        debug(self.name, 'encrypted', f'{src.name} -> {self.encrypted_path.name}')
+        debug(self.name, 'encrypted', f'{src.name} -> {self.encrypted_path}')
 
     def decrypt(self, dest=None):
         """ Do some decryption here and write to dest path """
@@ -183,7 +178,7 @@ class DotFileEncryptedBaseClass(DotFile):
             raise MicrodotError(f"Failed to decrypt {self.encrypted_path}, invalid key.")
 
         dest.write_bytes(decrypted)
-        debug(self.name, 'decrypted', f'{self.encrypted_path.name} -> {dest.name}')
+        debug(self.name, 'decrypted', f'{self.encrypted_path.name} -> {dest}')
 
     def link(self, force=False):
         if self.link_path.is_symlink():
@@ -217,6 +212,10 @@ class DotFileEncryptedBaseClass(DotFile):
         """ Checks current file md5 against last md5 """
         return self.hash != self.get_hash(self.path)
 
+    def get_encrypted_path(self, channel, name):
+        md5 = self.get_hash(Path.home() / name)
+        return channel / ENCRYPTED_FILE_FORMAT.format(name=name, md5=md5)
+
 
 class DotFileEncrypted(DotFileEncryptedBaseClass):
     def __init__(self, *args):
@@ -230,9 +229,6 @@ class DotFileEncrypted(DotFileEncryptedBaseClass):
 
     def init(self, src):
         """ Move source path to dotfile location """
-        md5 = self.get_hash(src)
-        self.encrypted_path = self.channel / ENCRYPTED_FILE_FORMAT.format(name=self.name, md5=md5)
-
         self.encrypt(src, self._key)
         src.unlink()
         debug(self.name, 'init', f'removed original file: {src}')
@@ -251,11 +247,8 @@ class DotFileEncrypted(DotFileEncryptedBaseClass):
         info(self.name, 'f_changed', self.path)
 
         old_encrypted_path = self.encrypted_path
-
-        md5 = self.get_hash(self.path)
-        self.encrypted_path = self.path.parent / ENCRYPTED_FILE_FORMAT.format(name=self.name, md5=md5)
+        self.encrypted_path = self.get_encrypted_path(self.channel, self.name)
         self.encrypt(self.path, self._key, force=True)
-
         self.unlink()
         old_encrypted_path.unlink()
         self.link()

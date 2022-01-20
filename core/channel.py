@@ -229,8 +229,7 @@ class DotFileEncryptedBaseClass(DotFile):
         info(self.name, 'changed', self.path)
 
         old_encrypted_path = self.encrypted_path
-        self.encrypted_path = self.get_encrypted_path(self.path)
-        #self.encrypted_path = self.get_encrypted_path(self.channel, self.name)
+        #self.encrypted_path = self.get_encrypted_path(self.path)
 
         self.encrypt(self.path, self._key, force=True)
         self.unlink()
@@ -266,7 +265,8 @@ class DotFileEncryptedBaseClass(DotFile):
         return self.hash != self.get_hash(self.path)
 
     def get_encrypted_path(self, channel, name):
-        md5 = self.get_hash(Path.home() / name)
+        md5 = self.get_hash(self.path)
+        #md5 = self.get_hash(Path.home() / name)
         ts = datetime.datetime.utcnow().strftime(TIMESTAMP_FORMAT)
         if self.is_dir():
             return channel / ENCRYPTED_DIR_FORMAT.format(name=name, ts=ts, md5=md5)

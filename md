@@ -97,6 +97,7 @@ class App():
         elif state.do_link:
             if not (dotfile := state.channel.get_dotfile(state.do_link)):
                 logger.error(f"Dotfile not found: {state.do_link}")
+                return
             try:
                 dotfile.link(state.do_force)
             except MicrodotError as e:
@@ -105,6 +106,7 @@ class App():
         elif state.do_unlink:
             if not (dotfile := state.channel.get_dotfile(state.do_unlink)):
                 logger.error(f"Dotfile not found: {state.do_unlink}")
+                return
             try:
                 dotfile.unlink()
             except MicrodotError as e:

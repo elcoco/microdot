@@ -26,7 +26,7 @@
 # DONE use channel/decrypted for decrypted files/dirs
 # TODO when internet is back after a cut, wait a random amount of time.
 #      this way we don't get conflicts when all devices start pushing at the same time
-# TODO add info messages on normal operations, link, unlink etc
+# DONE add info messages on normal operations, link, unlink etc
 
 import logging
 import argparse
@@ -37,6 +37,7 @@ from core import state, lock
 from core.channel import get_channels, get_channel
 from core.exceptions import MicrodotError
 from core.sync import Sync
+from core.utils import info, debug
 
 logger = logging.getLogger("microdot")
 
@@ -103,6 +104,7 @@ class App():
                 return
             try:
                 dotfile.link(state.do_force)
+                info("main", "linked", f"{dotfile.link_path} -> {dotfile.path}")
             except MicrodotError as e:
                 logger.error(e)
 
@@ -112,12 +114,14 @@ class App():
                 return
             try:
                 dotfile.unlink()
+                info("main", "unlinked", f"{dotfile.path}")
             except MicrodotError as e:
                 logger.error(e)
 
         elif state.do_init:
             try:
                 state.channel.init(Path(state.do_init), encrypted=state.do_encrypt)
+                info("main", "init", f"{state.do_init}")
             except MicrodotError as e:
                 logger.error(e)
 

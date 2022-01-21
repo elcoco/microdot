@@ -10,7 +10,7 @@ from core import lock, state
 from core.exceptions import MicrodotError
 from core.channel import update_encrypted_from_decrypted, update_decrypted_from_encrypted, get_encrypted_dotfiles
 from core.logic import SyncAlgorithm
-from core.utils import debug, info
+from core.utils import debug, info, get_hash
 
 import git
 from git import Repo
@@ -217,20 +217,20 @@ class Sync(SyncAlgorithm):
                 pass
 
             elif (df := self.is_in_conflict(a_path, b_path)):
-                d_hash = a.get_hash(a.path)
+                d_hash = get_hash(a.path)
 
                 if d_hash == a.hash:
                     info('sync', 'conflict', f"Choosing A: {a.encrypted_path.name}")
                     rename_path = b_path.parent / self.get_conflict_name(b_path.name)
                     b_path.rename(rename_path)
-                    self.add(a)
+                    self.add(a_path)
                     info("sync", "rename", rename_path.name)
 
                 elif d_hash == b.hash:
                     info('sync', 'conflict', f"Choosing B: {b.encrypted_path.name}")
                     rename_path = a_path.parent / self.get_conflict_name(a_path.name)
                     a_path.rename(rename_path)
-                    self.add(b)
+                    self.add(b_path)
                     info("sync", "rename", rename_path.name)
 
                 else:

@@ -14,36 +14,45 @@ logger = logging.getLogger("microdot")
 @dataclass
 class Patch():
     orig: Path
-    new: Path
     patch: Path
 
     def __post_init__(self):
         self.editor = os.environ.get('EDITOR','vim') 
 
     def list(self):
-        for l in self.patch.read_text().split('\n'):
-            info("patch", "list", l)
+        for i,l in enumerate(self.patch.read_text().split('\n')):
+            info("patch", "list", f"{str(i).rjust(3)}: {l}")
 
     def apply(self):
         """ Apply patch to orig
 
             patch:
-                -p NUM  --strip=NUM    Strip NUM leading components from file names.
-                -s  --quiet  --silent  Work silently unless an error occurs.
+                -d DIR  --directory=DIR  Change the working directory to DIR first.
+                -p NUM  --strip=NUM      Strip NUM leading components from file names.
+                -s  --quiet  --silent    Work silently unless an error occurs.
 
             returns: True if self.orig is changed
         """
-        cmd = ['patch', '--silent', '--strip=0', str(self.orig.absolute()), str(self.patch.absolute())]
+        # TODO use --merge flag for git style 3 way merge
+        if self.orig.is_dir():
+            cmd = ['patch', f'--directory={str(self.orig.absolute())}', '--strip=3', f'--input={str(self.patch.absolute())}']
+        else:
+            cmd = ['patch', f'--directory={str(self.orig.parent.absolute())}', '--strip=2', f'--input={str(self.patch.absolute())}']
+
         debug("patch", "apply", " ".join(cmd))
         md5 = get_hash(self.orig)
 
-        try:
-            # check=True raises CalledProcessError on non zero exit code
-            result = subprocess.run(cmd, capture_output=True, check=True)
-        except subprocess.CalledProcessError as e:
-            raise MicrodotError(f"Failed to execute patch: {cmd}")
+        result = subprocess.run(cmd, capture_output=True)
 
-        return md5 != get_hash(self.patch)
+        if result.returncode != 0:
+            raise MicrodotError(f"Failed to apply patch: {cmd}\n{result.stdout.decode()}")
+
+        return md5 != get_hash(self.orig)
+
+    def merge(self):
+        """ Merge a patch file into the original file """
+        pass
+
 
     def cleanup(self):
         # remove temp patch file
@@ -53,11 +62,6 @@ class Patch():
             pass
         else:
             self.orig.unlink()
-
-        if self.new.is_dir():
-            pass
-        else:
-            self.new.unlink()
 
     def edit(self):
         """ Edit patch with $EDITOR
@@ -72,7 +76,7 @@ class Patch():
             result = subprocess.run(cmd, check=True)
         except subprocess.CalledProcessError as e:
             logger.error(e)
-            raise MicrodotError(f"Failed to execute editor: {cmd}")
+            raise MicrodotError(f"Failed to execute editor: {' '.join(cmd)}")
 
         return md5 != get_hash(self.patch)
 
@@ -108,9 +112,9 @@ class Diff():
         else:
             raise MicrodotError(f"Error while running diff command: {' '.join(cmd)}\n{result.stderr.decode()}")
 
-        tmp_file = Path(tempfile.mktemp())
-        tmp_file.write_bytes(result.stdout)
-        return Patch(self.orig, self.new, tmp_file)
+        patch_path = Path(tempfile.mktemp())
+        patch_path.write_bytes(result.stdout)
+        return Patch(self.orig, patch_path)
 
 
 def handle_conflict(df_orig, df_conflict):
@@ -120,8 +124,8 @@ def handle_conflict(df_orig, df_conflict):
     # TODO start clean
     #dotfile.update()
 
-    tmp_orig     = Path(tempfile.mkdtemp()) if df_orig.is_dir() else Path(tempfile.mktemp())
-    tmp_conflict = Path(tempfile.mkdtemp()) if df_conflict.is_dir() else Path(tempfile.mktemp())
+    tmp_orig     = Path(tempfile.mkdtemp(prefix='original_')) if df_orig.is_dir() else Path(tempfile.mktemp(prefix='original_'))
+    tmp_conflict = Path(tempfile.mkdtemp(prefix='conflict_')) if df_conflict.is_dir() else Path(tempfile.mktemp(prefix='conflict_'))
 
     df_orig.decrypt(dest=tmp_orig)
     df_conflict.decrypt(dest=tmp_conflict)
@@ -129,6 +133,8 @@ def handle_conflict(df_orig, df_conflict):
 
     d = Diff(tmp_orig, tmp_conflict)
     patch = d.create()
+    print("orig", d.orig)
+    print("new ", d.new)
 
     if not patch:
         return
@@ -142,8 +148,6 @@ def handle_conflict(df_orig, df_conflict):
 
         try:
             patch.apply()
-            for l in patch.orig.read_text().split('\n'):
-                print(l)
             break
         except MicrodotError as e:
             logger.error(e)
@@ -152,3 +156,4 @@ def handle_conflict(df_orig, df_conflict):
 
 
 
+    print("orig", d.orig)

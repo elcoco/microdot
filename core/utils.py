@@ -113,7 +113,25 @@ def get_tar(src):
         f.add(src, arcname=src.name)
     return tmp_file
 
+def get_rec_hash(path, md5):
+    """ Do some recursive path seeking """
+    md5.update(path.name.encode())
+    if path.is_dir():
+        for i in sorted(path.iterdir(), key=lambda x: x.name):
+            get_rec_hash(i, md5)
+    else:
+        md5.update(path.read_bytes())
+
 def get_hash(path, n=8):
+    """ Get hash of file name and contents """
+    # TODO doesn't work when nested dir
+    # TODO make recursive
+    md5 = hashlib.md5()
+    md5.update(path.name.encode())
+    get_rec_hash(path, md5)
+    return base64.b64encode(md5.digest(), altchars=BASE_64_ALT_CHARS.encode()).decode()[:n]
+
+def get_hash_bak(path, n=8):
     """ Get hash of file name and contents """
     # TODO doesn't work when nested dir
     m = hashlib.md5()

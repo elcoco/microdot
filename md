@@ -34,6 +34,39 @@
 # TODO catch keyboard interrupt in link/unlink etc
 # DONE give nice list of conflicted files when listing
 # TODO maybe move all constants to global state object
+# TODO use columnize in list view
+
+"""
+md --diff <conflictfile>
+md --diff
+
+let user choose between conflict files if multiple available
+
+TMP_CURRENT = decrypt current file/dir to tmp
+TMP_CONFLICT = decrypt conflict file/dir to tmp
+
+PATCH = patch in tmp file using: diff -ruN TMP_CURRENT TMP_CONFLICT > /tmp/file.patch
+
+HASH1 = hash(PATCH)
+edit PATCH in vim
+HASH2 = hash(PATCH)
+
+changed = (HASH1 != HASH2)
+if changed
+
+    if ask_for_confirmation
+
+        apply patch to TMP_CURRENT tmp file/dir
+        $ patch -s -p0 < PATCH
+
+        if CURRENT has changed in the meanwhile
+            abort
+
+        move TMP_CURRENT -> CURRENT
+        remove PATCH
+        remove TMP_CONFLICT
+        remove conflict file
+"""
 
 
 import logging

@@ -141,14 +141,20 @@ class DotFileEncryptedBaseClass(DotFile):
             self.encrypted_path = path
             self.name = self.path.relative_to(channel.parent / DECRYPTED_DIR / channel.name)
             self.timestamp = datetime.datetime.strptime(ts, TIMESTAMP_FORMAT)
-
         except ValueError:
-            # instantiated by self.init(), allow incomplete data. missing data will be added later
-            self.hash = None
-            self.path = channel.parent / DECRYPTED_DIR / channel.name / path.relative_to(channel)
-            self.name = path.relative_to(channel)
-            self.encrypted_path = self.get_encrypted_path(channel, self.name)
-            self.timestamp = datetime.datetime.utcnow()
+            try:
+                name, self.hash, ts,  _, _, _ = path.name.split('#')
+                self.path = channel.parent / DECRYPTED_DIR / channel.name / path.relative_to(channel).parent / name
+                self.encrypted_path = path
+                self.name = self.path.relative_to(channel.parent / DECRYPTED_DIR / channel.name)
+                self.timestamp = datetime.datetime.strptime(ts, TIMESTAMP_FORMAT)
+            except ValueError:
+                # instantiated by self.init(), allow incomplete data. missing data will be added later
+                self.hash = None
+                self.path = channel.parent / DECRYPTED_DIR / channel.name / path.relative_to(channel)
+                self.name = path.relative_to(channel)
+                self.encrypted_path = self.get_encrypted_path(channel, self.name)
+                self.timestamp = datetime.datetime.utcnow()
 
         self.channel = channel
         self.link_path = Path.home() / self.name
@@ -350,13 +356,13 @@ class Channel():
         self.dotfiles = self.search_dotfiles(self._path, state.core.check_dirs)
         self.dotfiles = self.filter_decrypted(self.dotfiles)
         self._colors = state.colors
-        self.conflicts = self.search_conflicts(self._path, state.core.check_dirs)
+        self.conflicts = sorted(self.search_conflicts(self._path, state.core.check_dirs), key=lambda x: x.timestamp, reverse=True)
 
     def create_obj(self, path):
         """ Create a brand new DotFile object """
-        if path.name.endswith("#D#CRYPT"):
+        if path.name.endswith("#D#CRYPT") or path.name.endswith("#D#CRYPT#CONFLICT"):
             return DotDirEncrypted(path, self._path, self._key)
-        elif path.name.endswith("#F#CRYPT"):
+        elif path.name.endswith("#F#CRYPT") or path.name.endswith("#F#CRYPT#CONFLICT"):
             return DotFileEncrypted(path, self._path, self._key)
         return DotFile(path, self._path)
 
@@ -398,8 +404,11 @@ class Channel():
         """ Pretty print all dotfiles """
         print(colorize(f"\nchannel: {self.name}", self._colors.channel_name))
 
-        items =  [d for d in self.dotfiles if d.is_dir()]
-        items += [f for f in self.dotfiles if f.is_file()]
+        encrypted =  [d for d in self.dotfiles if d.is_dir() and d.is_encrypted]
+        encrypted += [f for f in self.dotfiles if f.is_file() and f.is_encrypted]
+        items =  [d for d in self.dotfiles if d.is_dir() and not d.is_encrypted]
+        items += [f for f in self.dotfiles if f.is_file() and not f.is_encrypted]
+
 
         if len(items) == 0:
             print(colorize(f"No dotfiles yet!", 'red'))
@@ -408,16 +417,28 @@ class Channel():
         for item in items:
             color = self._colors.linked if item.check_symlink() else self._colors.unlinked
 
-            if item.is_encrypted:
-                print(colorize(f"[E] {item.name}", color), end='')
-                print(colorize(f" :: {item.timestamp}", 'magenta'))
-            elif item.is_dir():
-                print(colorize(f"[D] {item.name}", color))
+            if item.is_dir():
+                print(colorize(f"[D]  {item.name}", color))
             else:
-                print(colorize(f"[F] {item.name}", color))
+                print(colorize(f"[F]  {item.name}", color))
+
+        for item in encrypted:
+            color = self._colors.linked if item.check_symlink() else self._colors.unlinked
+            if item.is_dir():
+                print(colorize(f"[ED] {item.name}", color), end='')
+            else:
+                print(colorize(f"[EF] {item.name}", color), end='')
+
+            print(colorize(f" {item.timestamp}", 'magenta'), end='')
+            print(colorize(f" {item.hash}", color))
 
         for item in self.conflicts:
-            print(colorize(f"[C] {item.name}", self._colors.conflict))
+            if item.is_dir():
+                print(colorize(f"[CD] {item.name}", self._colors.conflict), end='')
+            else:
+                print(colorize(f"[CF] {item.name}", self._colors.conflict), end='')
+            print(colorize(f" {item.timestamp}", 'magenta'), end='')
+            print(colorize(f" {item.hash}", 'green'))
 
     def get_dotfile(self, name):
         for df in self.dotfiles:

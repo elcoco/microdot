@@ -173,10 +173,11 @@ def handle_conflict(df_orig, df_conflict):
 
     if df_orig.is_file():
         if patch.vimdiff(tmp_conflict):
-            #tmp_conflict.replace(df_orig.path)
             shutil.move(tmp_orig, df_orig.path)
             df_orig.update()
-            info("diff", "patched", tmp_orig)
+            info("patch", "patched", tmp_orig)
+        else:
+            info("patch", "patched", "canceled")
         return
 
     while True:

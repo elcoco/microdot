@@ -177,7 +177,7 @@ def handle_conflict(df_orig, df_conflict):
             df_orig.update()
             info("patch", "patched", tmp_orig)
         else:
-            info("patch", "patched", "canceled")
+            info("patch", "patch", "canceled")
         return
 
     while True:

@@ -134,7 +134,7 @@ class DotFile():
 class DotFileEncryptedBaseClass(DotFile):
     """ Baseclass for all encrypted files/directories """
     def __init__(self, path, channel, key):
-        # parse filename
+        # parse ENCRYPTED file
         try:
             name, self.hash, ts,  _, _ = path.name.split('#')
             self.path = channel.parent / DECRYPTED_DIR / channel.name / path.relative_to(channel).parent / name
@@ -142,6 +142,7 @@ class DotFileEncryptedBaseClass(DotFile):
             self.name = self.path.relative_to(channel.parent / DECRYPTED_DIR / channel.name)
             self.timestamp = datetime.datetime.strptime(ts, TIMESTAMP_FORMAT)
         except ValueError:
+            # parse CONFLICT file
             try:
                 name, self.hash, ts,  _, _, _ = path.name.split('#')
                 self.path = channel.parent / DECRYPTED_DIR / channel.name / path.relative_to(channel).parent / name
@@ -256,7 +257,6 @@ class DotFileEncryptedBaseClass(DotFile):
         if path.is_dir():
             # sometimes files are read in a different order so sort first!
             for p in sorted(path.rglob("*"), key=lambda x: x.name):
-                print(p)
                 m.update(p.read_bytes())
                 m.update(p.name.encode())
         else:

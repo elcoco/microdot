@@ -51,7 +51,16 @@ class Patch():
         return md5 != get_hash(self.orig)
 
     def merge(self):
-        """ Merge a patch file into the original file """
+        """ Merge a patch file into the original file
+
+            when providing an empty file as a common ancestor we get a nice merge file that can be edited manually
+            this writes to <current-version>
+            using the -p switch writes to stdout instead of <current-version>
+            git merge-file -p <current-version> <common-ancestor> <other-version>
+
+            # use -L to give labels to files
+            git merge-file -L original -L base -L conflicted -p file1.txt file.diff file2.txt
+        """
         cmd = ['patch', '--merge=diff3', f'--directory={str(self.orig.parent.absolute())}', '--strip=2', f'--input={str(self.patch.absolute())}']
 
         result = subprocess.run(cmd, capture_output=True)

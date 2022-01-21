@@ -72,6 +72,17 @@ class DotFile():
         self.name = path.relative_to(channel)
         self.link_path = Path.home() / self.name
         self.is_encrypted = False
+        self.cleanup_link()
+
+    def cleanup_link(self):
+        # find orphan links (symlink that points 
+        if self.link_path.is_symlink():
+            if not self.path.exists():
+                self.link_path.unlink()
+                info("link_check", "remove", f"orphan link found: {self.link_path}")
+            if not self.link_path.resolve() == self.path:
+                info("link_check", "remove", f"link doesn't point to data: {self.link_path}")
+                self.link_path.unlink()
 
     def check_symlink(self):
         # check if link links to src
@@ -159,6 +170,9 @@ class DotFileEncryptedBaseClass(DotFile):
         self.link_path = Path.home() / self.name
         self.is_encrypted = True
         self._key = key
+
+        # cleanup orphan links (symlink that points 
+        self.cleanup_link()
 
         # ensure decrypted dir exists
         if not self.path.parent.is_dir():

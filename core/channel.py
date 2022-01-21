@@ -11,7 +11,7 @@ import datetime
 from core.exceptions import MicrodotError
 from core import state
 
-from core.utils import confirm, colorize, debug, info
+from core.utils import confirm, colorize, debug, info, get_hash, get_tar
 
 try:
     from cryptography.fernet import Fernet
@@ -28,8 +28,6 @@ ENCRYPTED_FILE_FORMAT  = "{name}#{md5}#{ts}#F#CRYPT"
 # TODO this extension is used in sync but constant is not accessible
 CONFLICT_EXT = "#CONFLICT"
 
-# characters to use instead of the filsystem unsafe +/
-BASE_64_ALT_CHARS = "@$"
 
 # dirname relative to dotfiles dir to store decrypted files/dirs in
 DECRYPTED_DIR = 'decrypted'
@@ -172,7 +170,7 @@ class DotFileEncryptedBaseClass(DotFile):
 
         # if dir, compress dir into tmp tar file
         if src.is_dir():
-            src = self.get_tar(src)
+            src = get_tar(src)
 
         if self.encrypted_path.exists():
             if force:
@@ -216,7 +214,7 @@ class DotFileEncryptedBaseClass(DotFile):
 
     def debug(self, msg):
         if self.path.exists():
-            sha = self.get_hash(self.path)
+            sha = get_hash(self.path)
         else:
             sha = "NOEXIST"
 
@@ -241,35 +239,13 @@ class DotFileEncryptedBaseClass(DotFile):
 
         info(self.name, 'updated', f'{self.name} -> {self.encrypted_path.name}')
 
-    def get_tar(self, src):
-        """ Compress path into tar archive and save in tmp file """
-        tmp_file = Path(tempfile.mktemp())
-
-        with tarfile.open(tmp_file, 'w') as f:
-            f.add(src, arcname=src.name)
-        return tmp_file
-
-    def get_hash(self, path):
-        """ Get hash of file name and contents """
-        m = hashlib.md5()
-        m.update(path.name.encode())
-
-        if path.is_dir():
-            # sometimes files are read in a different order so sort first!
-            for p in sorted(path.rglob("*"), key=lambda x: x.name):
-                m.update(p.read_bytes())
-                m.update(p.name.encode())
-        else:
-            m.update(path.read_bytes())
-        return base64.b64encode(m.digest(), altchars=BASE_64_ALT_CHARS.encode()).decode()[:8]
-
     def is_changed(self):
         """ Checks current file md5 against last md5 """
-        return self.hash != self.get_hash(self.path)
+        return self.hash != get_hash(self.path)
 
     def get_encrypted_path(self, channel, name):
-        #md5 = self.get_hash(self.path)
-        md5 = self.get_hash(Path.home() / name)
+        #md5 = get_hash(self.path)
+        md5 = get_hash(Path.home() / name)
         ts = datetime.datetime.utcnow().strftime(TIMESTAMP_FORMAT)
         if self.is_dir():
             return channel / ENCRYPTED_DIR_FORMAT.format(name=name, ts=ts, md5=md5)

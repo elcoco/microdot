@@ -2,11 +2,18 @@ from pathlib import Path
 import inspect
 import time
 import logging
+import tempfile
+import hashlib
+import base64
+import tarfile
 
 logger = logging.getLogger("microdot")
 
 ACTION_JUST = 10
 CATEGORY_JUST = 10
+
+# characters to use instead of the filsystem unsafe +/
+BASE_64_ALT_CHARS = "@$"
 
 class Lock():
     """ Does lock things """
@@ -97,3 +104,25 @@ def debug(category: str, action: str, msg: str):
     action = colorize(action, 'magenta')
     msg = colorize(msg, 'white')
     logger.debug(f"{category} {action} {msg}")
+
+def get_tar(src):
+    """ Compress path into tar archive and save in tmp file """
+    tmp_file = Path(tempfile.mktemp())
+
+    with tarfile.open(tmp_file, 'w') as f:
+        f.add(src, arcname=src.name)
+    return tmp_file
+
+def get_hash(path, n=8):
+    """ Get hash of file name and contents """
+    m = hashlib.md5()
+    m.update(path.name.encode())
+
+    if path.is_dir():
+        # sometimes files are read in a different order so sort first!
+        for p in sorted(path.rglob("*"), key=lambda x: x.name):
+            m.update(p.read_bytes())
+            m.update(p.name.encode())
+    else:
+        m.update(path.read_bytes())
+    return base64.b64encode(m.digest(), altchars=BASE_64_ALT_CHARS.encode()).decode()[:n]

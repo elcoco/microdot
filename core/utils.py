@@ -13,7 +13,7 @@ ACTION_JUST = 10
 CATEGORY_JUST = 10
 
 # characters to use instead of the filsystem unsafe +/
-BASE_64_ALT_CHARS = "@$"
+BASE_64_ALT_CHARS = "@-"
 
 class Lock():
     """ Does lock things """
@@ -115,6 +115,7 @@ def get_tar(src):
 
 def get_hash(path, n=8):
     """ Get hash of file name and contents """
+    # TODO doesn't work when nested dir
     m = hashlib.md5()
     m.update(path.name.encode())
 

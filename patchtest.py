@@ -29,14 +29,16 @@ while True:
     patch.edit()
     patch.list()
 
-    if confirm(f"Apply patch to {patch.orig}?"):
-        try:
-            patch.apply()
+    if not confirm(f"Apply patch to {patch.orig}?"):
+        break
+
+    try:
+        patch.apply()
+        break
+    except MicrodotError as e:
+        logger.error(e)
+        if not confirm("Failed to apply patch, would you like to edit the patch again?"):
             break
-        except MicrodotError as e:
-            logger.error(e)
-            if not confirm("Failed to apply patch, would you like to edit the patch again?"):
-                break
 
 
 for l in patch.orig.read_text().split('\n'):

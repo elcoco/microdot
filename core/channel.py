@@ -287,7 +287,7 @@ class DotDirEncrypted(DotFileEncryptedBaseClass):
     def is_dir(self):
         return True
 
-    def decrypt(self):
+    def decrypt(self, dest=None):
         tmp_dir = Path(tempfile.mkdtemp())
         tmp_file = Path(tempfile.mktemp())
 
@@ -303,8 +303,12 @@ class DotDirEncrypted(DotFileEncryptedBaseClass):
 
         # cant use pathlib's replace because files need to be on same filesystem
         #logger.debug(f"Decrypt: moving: {tmp_dir / self.name} -> {self.path}")
-        shutil.move((tmp_dir / self.name), self.path)
-        debug(self.name, "moved", f"{tmp_dir/self.name} -> {self.path}")
+        if dest:
+            shutil.move((tmp_dir / self.name), dest)
+            debug(self.name, "moved", f"{tmp_dir/self.name} -> {dest}")
+        else:
+            shutil.move((tmp_dir / self.name), self.path)
+            debug(self.name, "moved", f"{tmp_dir/self.name} -> {self.path}")
 
         #logger.debug(f"Decrypt: removing tmp file: {tmp_file}")
         tmp_file.unlink()
@@ -410,15 +414,28 @@ class Channel():
 
         for item in self.conflicts:
             if item.is_dir():
-                print(colorize(f"[CD] {item.name}", self._colors.conflict), end='')
+                print(colorize(f"[CD]", self._colors.conflict), end='')
             else:
-                print(colorize(f"[CF] {item.name}", self._colors.conflict), end='')
-            print(colorize(f" {item.timestamp}", 'magenta'), end='')
-            print(colorize(f" {item.hash}", 'green'))
+                print(colorize(f"[CF]", self._colors.conflict), end='')
+            print(colorize(f" {item.timestamp} {item.encrypted_path.name}", 'red'))
+
+        #for item in self.conflicts:
+        #    if item.is_dir():
+        #        print(colorize(f"[CD] {item.name}", self._colors.conflict), end='')
+        #    else:
+        #        print(colorize(f"[CF] {item.name}", self._colors.conflict), end='')
+        #    print(colorize(f" {item.timestamp}", 'magenta'), end='')
+        #    print(colorize(f" {item.hash}", 'green'))
 
     def get_dotfile(self, name):
         for df in self.dotfiles:
             if str(df.name) == str(name):
+                return df
+
+    def get_conflict(self, name):
+        for df in self.conflicts:
+            print(df.encrypted_path.name, str(name))
+            if str(df.encrypted_path.name) == str(name):
                 return df
 
     def link_all(self, force=False, assume_yes=False):

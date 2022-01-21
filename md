@@ -79,6 +79,7 @@ from core.channel import get_channels, get_channel
 from core.exceptions import MicrodotError
 from core.sync import Sync
 from core.utils import info, debug
+from core.diff import handle_conflict
 
 logger = logging.getLogger("microdot")
 
@@ -93,6 +94,7 @@ class App():
         parser.add_argument('-u', '--unlink',       help='unlink dotfile', metavar='DOT', default=None)
         parser.add_argument('-U', '--unlink-all',   help='unlink all dotfiles in channel', action='store_true')
         parser.add_argument('-i', '--init',         help='init dotfile', metavar='PATH', default=None)
+        parser.add_argument('-p', '--patch',        help='generate patch for conflict file', metavar='PATH', nargs=2, default=None)
         parser.add_argument('-s', '--sync',         help='sync repo', action='store_true')
         parser.add_argument('-e', '--encrypt',      help='encrypt file', action='store_true')
         parser.add_argument('-w', '--watch',        help='start git watch daemon', action='store_true')
@@ -113,6 +115,7 @@ class App():
         state.do_force        = args.force
         state.do_watch        = args.watch
         state.do_sync         = args.sync
+        state.do_patch        = args.patch
 
         if args.debug:
             logger.setLevel(logging.DEBUG)
@@ -184,6 +187,22 @@ class App():
             try:
                 s = Sync(state.core.dotfiles_dir, state.git.interval, state.notifications.error_interval)
                 s.watch_repo()
+            except MicrodotError as e:
+                logger.error(e)
+
+        elif state.do_patch:
+            orig_path     = Path(state.do_patch[0])
+            conflict_path = Path(state.do_patch[1])
+            print(conflict_path)
+
+            if not (orig_df := state.channel.get_dotfile(orig_path)):
+                logger.error(f"Dotfile not found: {orig_path}")
+                return
+            if not (conflict_df := state.channel.get_conflict(conflict_path)):
+                logger.error(f"Dotfile not found: {conflict_path}")
+                return
+            try:
+                handle_conflict(orig_df, conflict_df)
             except MicrodotError as e:
                 logger.error(e)
 

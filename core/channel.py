@@ -434,7 +434,6 @@ class Channel():
 
     def get_conflict(self, name):
         for df in self.conflicts:
-            print(df.encrypted_path.name, str(name))
             if str(df.encrypted_path.name) == str(name):
                 return df
 

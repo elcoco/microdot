@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import tempfile
 import os
+import shutil
 
 from core.utils import debug, info, get_hash, get_tar, confirm
 from core.exceptions import MicrodotError
@@ -51,7 +52,16 @@ class Patch():
 
     def merge(self):
         """ Merge a patch file into the original file """
-        pass
+        cmd = ['patch', '--merge=diff3', f'--directory={str(self.orig.parent.absolute())}', '--strip=2', f'--input={str(self.patch.absolute())}']
+
+        result = subprocess.run(cmd, capture_output=True)
+
+        if result.returncode != 0:
+            raise MicrodotError(f"Failed to apply patch: {cmd}\n{result.stdout.decode()}")
+        print(result.stdout)
+        print(result.stderr)
+
+        self.edit(self.orig)
 
 
     def cleanup(self):
@@ -63,22 +73,42 @@ class Patch():
         else:
             self.orig.unlink()
 
-    def edit(self):
+    def vimdiff(self, new):
         """ Edit patch with $EDITOR
             returns: True is self.patch is changed
         """
-        debug("patch", "edit", f"{self.patch}")
-        md5 = get_hash(self.patch)
+        debug("patch", "edit", f"{self.orig}")
+        md5 = get_hash(self.orig)
 
         try:
             # check=True raises CalledProcessError on non zero exit code
-            cmd = [self.editor, str(self.patch.absolute())]
+            cmd = ['vimdiff', str(self.orig.absolute()), str(new.absolute())]
             result = subprocess.run(cmd, check=True)
         except subprocess.CalledProcessError as e:
             logger.error(e)
             raise MicrodotError(f"Failed to execute editor: {' '.join(cmd)}")
 
-        return md5 != get_hash(self.patch)
+        return md5 != get_hash(self.orig)
+
+    def edit(self, path=None):
+        """ Edit patch with $EDITOR
+            returns: True is self.patch is changed
+        """
+        if not path:
+            path=self.patch
+
+        debug("patch", "edit", f"{path}")
+        md5 = get_hash(path)
+
+        try:
+            # check=True raises CalledProcessError on non zero exit code
+            cmd = [self.editor, str(path.absolute())]
+            result = subprocess.run(cmd, check=True)
+        except subprocess.CalledProcessError as e:
+            logger.error(e)
+            raise MicrodotError(f"Failed to execute editor: {' '.join(cmd)}")
+
+        return md5 != get_hash(path)
 
 
 class Diff():
@@ -131,12 +161,22 @@ def handle_conflict(df_orig, df_conflict):
     df_conflict.decrypt(dest=tmp_conflict)
 
 
+
     d = Diff(tmp_orig, tmp_conflict)
     patch = d.create()
     print("orig", d.orig)
     print("new ", d.new)
+    print("patch", patch.patch)
 
     if not patch:
+        return
+
+    if df_orig.is_file():
+        if patch.vimdiff(tmp_conflict):
+            #tmp_conflict.replace(df_orig.path)
+            shutil.move(tmp_orig, df_orig.path)
+            df_orig.update()
+            info("diff", "patched", tmp_orig)
         return
 
     while True:

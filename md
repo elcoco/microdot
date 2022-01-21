@@ -193,7 +193,6 @@ class App():
         elif state.do_patch:
             orig_path     = Path(state.do_patch[0])
             conflict_path = Path(state.do_patch[1])
-            print(conflict_path)
 
             if not (orig_df := state.channel.get_dotfile(orig_path)):
                 logger.error(f"Dotfile not found: {orig_path}")

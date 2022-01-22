@@ -13,15 +13,15 @@
 #      or changes get lost
 #      When linking/init encrypted file, a warning needs to display about non running daemons
 
-# TODO encryption only works for files now
+# DONE encryption only works for files now
 
 # TODO add encrypt option to --link switch so we can encrypt an already initialized file
 #      ask the user to remove file from git cache
 
 # DONE use shorter base64 hashes
 # DONE call StatusList LastSyncIndex
-# TODO filter out CONFLICT files
-# TODO add inspect function to inspect conflicted encrypted files
+# DONE filter out CONFLICT files
+# DONE add inspect function to inspect conflicted encrypted files
 # TODO build better test
 # DONE use channel/decrypted for decrypted files/dirs
 # TODO when internet is back after a cut, wait a random amount of time.
@@ -56,20 +56,20 @@ class App():
     def parse_args(self, state):
         parser = argparse.ArgumentParser(description='Microdot :: Manage dotfiles in style')
 
-        parser.add_argument('-c', '--channel',      help='channel', metavar='NAME', default='common')
-        parser.add_argument('-l', '--link',         help='link dotfile', metavar='DOT', default=None)
-        parser.add_argument('-L', '--link-all',     help='link all dotfiles in channel', action='store_true')
-        parser.add_argument('-u', '--unlink',       help='unlink dotfile', metavar='DOT', default=None)
-        parser.add_argument('-U', '--unlink-all',   help='unlink all dotfiles in channel', action='store_true')
-        parser.add_argument('-i', '--init',         help='init dotfile', metavar='PATH', default=None)
-        parser.add_argument('-p', '--patch',        help='generate patch for conflict file', metavar='PATH', nargs=2, default=None)
-        parser.add_argument('-s', '--sync',         help='sync repo', action='store_true')
-        parser.add_argument('-e', '--encrypt',      help='encrypt file', action='store_true')
-        parser.add_argument('-w', '--watch',        help='start git watch daemon', action='store_true')
-        parser.add_argument('-d', '--dotfiles-dir', help='dotfiles directory', metavar='DIR', default=None)
-        parser.add_argument('-y', '--assume-yes',   help='answer yes to questions', action='store_true')
-        parser.add_argument('-f', '--force',        help='overwrite file if exists', action='store_true')
-        parser.add_argument('-D', '--debug',        help='enable debug', action='store_true')
+        parser.add_argument('-c', '--channel',        help='channel', metavar='NAME', default='common')
+        parser.add_argument('-l', '--link',           help='link dotfile', metavar='DOT', default=None)
+        parser.add_argument('-L', '--link-all',       help='link all dotfiles in channel', action='store_true')
+        parser.add_argument('-u', '--unlink',         help='unlink dotfile', metavar='DOT', default=None)
+        parser.add_argument('-U', '--unlink-all',     help='unlink all dotfiles in channel', action='store_true')
+        parser.add_argument('-i', '--init',           help='init dotfile', metavar='PATH', default=None)
+        parser.add_argument('-C', '--solve-conflict', help='solve conflict by merging', metavar=('DOT','CONFLICT'), nargs=2, default=None)
+        parser.add_argument('-s', '--sync',           help='sync repo', action='store_true')
+        parser.add_argument('-e', '--encrypt',        help='encrypt file', action='store_true')
+        parser.add_argument('-w', '--watch',          help='start git watch daemon', action='store_true')
+        parser.add_argument('-d', '--dotfiles-dir',   help='dotfiles directory', metavar='DIR', default=None)
+        parser.add_argument('-y', '--assume-yes',     help='answer yes to questions', action='store_true')
+        parser.add_argument('-f', '--force',          help='overwrite file if exists', action='store_true')
+        parser.add_argument('-D', '--debug',          help='enable debug', action='store_true')
 
         args = parser.parse_args()
 
@@ -83,7 +83,7 @@ class App():
         state.do_force        = args.force
         state.do_watch        = args.watch
         state.do_sync         = args.sync
-        state.do_patch        = args.patch
+        state.do_solve        = args.solve_conflict
 
         if args.debug:
             logger.setLevel(logging.DEBUG)
@@ -158,9 +158,9 @@ class App():
             except MicrodotError as e:
                 logger.error(e)
 
-        elif state.do_patch:
-            orig_path     = Path(state.do_patch[0])
-            conflict_path = Path(state.do_patch[1])
+        elif state.do_solve:
+            orig_path     = Path(state.do_solve[0])
+            conflict_path = Path(state.do_solve[1])
 
             if not (orig_df := state.channel.get_dotfile(orig_path)):
                 logger.error(f"Dotfile not found: {orig_path}")

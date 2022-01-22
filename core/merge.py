@@ -333,19 +333,25 @@ class MergeDir(MergeBaseClass):
     def generate_merge_file(self):
         """ Create a file with all changes that can be parsed and executed later """
         merge_file = Path(tempfile.mktemp(prefix='dir_merge_'))
-        lines = []
+        lines = ["# Actions in this file will be executed.",
+                 "# If you don't want to execute a line, just delete it.\n#",
+                 "#   current  = side that is in use currently.",
+                 "#   conflict = side that is extracted from conflict file.\n#",
+                 "# Unchanged files/dirs on 'current' will be copied or removed to match 'conflict'.",
+                 "# Changed files will be merged manually one by one.\n#",
+                 "# After merge the current side will be copied back to the system.\n"]
 
         dcmp = dircmp(self.current, self.conflict)
 
         for f in self.get_only_current(dcmp):
-            lines.append(f"# only in current\nrm {f}\n")
+            lines.append(f"# Exists only on 'current' side.\nrm {f}\n")
 
         for f in self.get_only_conflict(dcmp):
             p_current = self.current / Path(f).relative_to(self.conflict)
-            lines.append(f"# only in conflict\nmv {f} -> {p_current.absolute()}\n")
+            lines.append(f"# Exists only on 'conflict' side.\nmv {f} -> {p_current.absolute()}\n")
 
         for f in self.get_common_changed(dcmp):
-            lines.append(f"# in both but different content\nmerge {f[0]} != {f[1]}\n")
+            lines.append(f"# Exists on both sides, but with different content.\nmerge {f[0]} != {f[1]}\n")
 
         merge_file.write_text("\n".join(lines))
         self.edit(merge_file)

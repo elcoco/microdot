@@ -428,7 +428,8 @@ class Channel():
                 print(colorize(f"[CD]", self._colors.conflict), end='')
             else:
                 print(colorize(f"[CF]", self._colors.conflict), end='')
-            print(colorize(f" {item.timestamp} {item.encrypted_path.name}", 'red'))
+            print(colorize(f" {item.timestamp}", 'magenta'), end='')
+            print(colorize(f" {item.encrypted_path.name}", 'red'))
 
         #for item in self.conflicts:
         #    if item.is_dir():

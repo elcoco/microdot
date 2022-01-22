@@ -84,7 +84,7 @@ state.do_unlink     = None
 state.do_link_all   = None
 state.do_unlink_all = None
 state.do_init       = None
-state.do_patch      = None
+state.do_solve      = None
 
 state.do_watch      = False
 state.do_encrypt    = False

@@ -339,19 +339,26 @@ class MergeDir(MergeBaseClass):
                  "#   conflict = side that is extracted from conflict file.\n#",
                  "# Unchanged files/dirs on 'current' will be copied or removed to match 'conflict'.",
                  "# Changed files will be merged manually one by one.\n#",
-                 "# After merge the current side will be copied back to the system.\n"]
+                 "# After merge the current side will be copied back to the system."]
 
         dcmp = dircmp(self.current, self.conflict)
 
-        for f in self.get_only_current(dcmp):
-            lines.append(f"# Exists only on 'current' side.\nrm {f}\n")
+        only_current   = self.get_only_current(dcmp)
+        only_conflict  = self.get_only_conflict(dcmp)
+        common_changed = self.get_common_changed(dcmp)
 
-        for f in self.get_only_conflict(dcmp):
+        for i,f in enumerate(only_current):
+            if i == 0: lines.append(f"\n# Exist only on 'current' side.")
+            lines.append(f"rm {f}")
+
+        for i,f in enumerate(only_conflict):
+            if i == 0: lines.append(f"\n# Exist only on 'conflict' side.")
             p_current = self.current / Path(f).relative_to(self.conflict)
-            lines.append(f"# Exists only on 'conflict' side.\nmv {f} -> {p_current.absolute()}\n")
+            lines.append(f"mv {f} -> {p_current.absolute()}")
 
-        for f in self.get_common_changed(dcmp):
-            lines.append(f"# Exists on both sides, but with different content.\nmerge {f[0]} != {f[1]}\n")
+        for i,f in enumerate(common_changed):
+            if i == 0: lines.append(f"\n# Exist on both sides but with different content.")
+            lines.append(f"merge {f[0]} | {f[1]}")
 
         merge_file.write_text("\n".join(lines))
         self.edit(merge_file)
@@ -365,9 +372,11 @@ class MergeDir(MergeBaseClass):
 
         if confirm("Execute these changes?"):
             self.execute_merge_file(merge_file)
+        else:
+            merge_file.unlink()
+            return
 
         merge_file.unlink()
-
         if confirm("Move merged directory to system?"):
             # TODO fix this, need to specify proper sub dir
             return shutil.move(self.current, dest)

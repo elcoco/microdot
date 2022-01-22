@@ -24,13 +24,12 @@ except MicrodotError as e:
 if not patch:
     sys.exit()
 
-
 while True:
     patch.edit()
     patch.list()
 
-    if not confirm(f"Apply patch to {patch.orig}?"):
-        break
+    if not confirm(f"Apply patch to {patch.current}?"):
+        return
 
     try:
         patch.apply()
@@ -38,9 +37,5 @@ while True:
     except MicrodotError as e:
         logger.error(e)
         if not confirm("Failed to apply patch, would you like to edit the patch again?"):
-            break
-
-
-for l in patch.orig.read_text().split('\n'):
-    print(l)
+            return
 

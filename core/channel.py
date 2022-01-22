@@ -80,7 +80,7 @@ class DotFile():
             if not self.path.exists():
                 self.link_path.unlink()
                 info("link_check", "remove", f"orphan link found: {self.link_path}")
-            if not self.link_path.resolve() == self.path:
+            elif not self.link_path.resolve() == self.path:
                 info("link_check", "remove", f"link doesn't point to data: {self.link_path}")
                 self.link_path.unlink()
 
@@ -302,29 +302,26 @@ class DotDirEncrypted(DotFileEncryptedBaseClass):
         return True
 
     def decrypt(self, dest=None):
+        if dest == None:
+            dest = self.path
+
         tmp_dir = Path(tempfile.mkdtemp())
         tmp_file = Path(tempfile.mktemp())
 
         DotFileEncryptedBaseClass.decrypt(self, tmp_file)
 
-        #logger.debug(f"Decrypt: extracting: {tmp_file} -> {tmp_dir}")
         with tarfile.open(tmp_file, 'r') as tar:
             tar.extractall(tmp_dir)
 
-        if self.path.exists():
-            #logger.debug(f"Decrypt: removing dir: {self.path}")
-            shutil.rmtree(self.path, ignore_errors=False, onerror=None)
+        if dest.exists():
+            shutil.rmtree(dest, ignore_errors=False, onerror=None)
 
         # cant use pathlib's replace because files need to be on same filesystem
         #logger.debug(f"Decrypt: moving: {tmp_dir / self.name} -> {self.path}")
         if dest:
             shutil.move((tmp_dir / self.name), dest)
             debug(self.name, "moved", f"{tmp_dir/self.name} -> {dest}")
-        else:
-            shutil.move((tmp_dir / self.name), self.path)
-            debug(self.name, "moved", f"{tmp_dir/self.name} -> {self.path}")
 
-        #logger.debug(f"Decrypt: removing tmp file: {tmp_file}")
         tmp_file.unlink()
 
     def init(self, src):

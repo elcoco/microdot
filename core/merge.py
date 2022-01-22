@@ -357,7 +357,7 @@ class MergeDir(MergeBaseClass):
         self.edit(merge_file)
         return merge_file
 
-    def merge(self):
+    def merge(self, dest):
         dcmp = dircmp(self.current, self.conflict)
 
         merge_file = self.generate_merge_file()
@@ -367,6 +367,10 @@ class MergeDir(MergeBaseClass):
             self.execute_merge_file(merge_file)
 
         merge_file.unlink()
+
+        if confirm("Move merged directory to system?"):
+            # TODO fix this, need to specify proper sub dir
+            return shutil.move(self.current, dest)
 
 
 def handle_conflict(df_current, df_conflict):
@@ -391,7 +395,8 @@ def handle_conflict(df_current, df_conflict):
     else:
         try:
             merge = MergeDir(tmp_current, tmp_conflict)
-            merge.merge()
+            merge.merge(df_current.path)
+            df_current.update()
             return True
         except MicrodotError as e:
             logger.error(e)

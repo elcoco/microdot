@@ -12,6 +12,7 @@ from core.exceptions import MicrodotError
 from core import state
 
 from core.utils import confirm, colorize, debug, info, get_hash, get_tar
+from core.utils import Columnize
 
 try:
     from cryptography.fernet import Fernet
@@ -391,7 +392,7 @@ class Channel():
                 items.append(self.create_obj(d))
         return sorted(items, key=lambda item: item.name)
 
-    def list(self):
+    def list_bak(self):
         """ Pretty print all dotfiles """
         print(colorize(f"\nchannel: {self.name}", self._colors.channel_name))
 
@@ -438,6 +439,57 @@ class Channel():
         #        print(colorize(f"[CF] {item.name}", self._colors.conflict), end='')
         #    print(colorize(f" {item.timestamp}", 'magenta'), end='')
         #    print(colorize(f" {item.hash}", 'green'))
+
+    def list(self):
+        """ Pretty print all dotfiles """
+        print(colorize(f"\nchannel: {self.name}", self._colors.channel_name))
+
+        encrypted =  [d for d in self.dotfiles if d.is_dir() and d.is_encrypted]
+        encrypted += [f for f in self.dotfiles if f.is_file() and f.is_encrypted]
+        items =  [d for d in self.dotfiles if d.is_dir() and not d.is_encrypted]
+        items += [f for f in self.dotfiles if f.is_file() and not f.is_encrypted]
+
+        if len(items) == 0:
+            print(colorize(f"No dotfiles yet!", 'red'))
+            return
+
+        cols = Columnize(tree=True, prefix_color='magenta')
+
+        for item in items:
+            color = self._colors.linked if item.check_symlink() else self._colors.unlinked
+
+            if item.is_dir():
+                cols.add([colorize(f"[D]", color), item.name])
+            else:
+                cols.add([colorize(f"[F]", color), item.name])
+
+        for item in encrypted:
+            color = self._colors.linked if item.check_symlink() else self._colors.unlinked
+            if item.is_dir():
+                cols.add([colorize(f"[ED]", color),
+                          item.name,
+                          colorize(item.hash, color),
+                          colorize(f"{item.timestamp}", 'magenta')])
+            else:
+                cols.add([colorize(f"[EF]", color),
+                          item.name,
+                          colorize(item.hash, color),
+                          colorize(f"{item.timestamp}", 'magenta')])
+        cols.show()
+
+        #cols = Columnize()
+        cols = Columnize(prefix='>>', prefix_color='red')
+        for item in self.conflicts:
+            if item.is_dir():
+
+                cols.add([colorize(f"[CD]", self._colors.conflict),
+                          colorize(f"{item.timestamp}", 'magenta'),
+                          colorize(f"{item.encrypted_path.name}", "green")])
+            else:
+                cols.add([colorize(f"[CF]", self._colors.conflict),
+                          colorize(f"{item.timestamp}", 'magenta'),
+                          colorize(f"{item.encrypted_path.name}", "green")])
+        cols.show()
 
     def get_dotfile(self, name):
         for df in self.dotfiles:

@@ -158,7 +158,7 @@ class MergeDir(MergeBaseClass):
 
         return ret
 
-    def execute_merge_file(self, file, do_confirm=True):
+    def execute_merge_file(self, file):
         """ Parse the file/dir merge file we created and execute commands """
         for i,l in enumerate(file.read_text().split('\n'), start=1):
             l = l.strip()
@@ -177,7 +177,8 @@ class MergeDir(MergeBaseClass):
             elif l.startswith("merge"):
                 current, conflict = self.check_line(l, [1,3])
                 merge = MergeFile(current, conflict)
-                merge.merge(do_confirm=do_confirm)
+                if (merge_file := merge.merge()):
+                    shutil.move(merge_file, current)
 
             else:
                 debug("merge", "parse", f"skip line: {l}")
@@ -216,14 +217,14 @@ class MergeDir(MergeBaseClass):
         self.edit(merge_file)
         return merge_file
 
-    def merge(self, do_confirm=True):
+    def merge(self):
         dcmp = dircmp(self.current, self.conflict)
 
         merge_file = self.generate_merge_file()
         self.list(merge_file)
 
         if confirm("Execute these changes?", canceled_msg="Merge canceled"):
-            self.execute_merge_file(merge_file, do_confirm=do_confirm)
+            self.execute_merge_file(merge_file)
         else:
             merge_file.unlink()
             info("merge", "merge", "Merge canceled")
@@ -242,7 +243,7 @@ def cleanup(items):
             item.unlink()
         debug("cleanup", "removed", item)
 
-def handle_file_conflict(df_current, df_conflict, do_confirm=True):
+def handle_file_conflict(df_current, df_conflict):
     """ Go through the full process of handling a file conflict """
 
     # decrypt current and conflict file to tmp files
@@ -254,22 +255,23 @@ def handle_file_conflict(df_current, df_conflict, do_confirm=True):
     # perform merge
     merge = MergeFile(tmp_current, tmp_conflict)
 
-    if not (merge_file := merge.merge(dest=df_current.path, do_confirm=do_confirm)):
+    if not (merge_file := merge.merge(dest=df_current.path, do_confirm=False)):
         info("merge", "merge", "Merge canceled")
         cleanup([tmp_current, tmp_conflict])
         return
 
     merge.list(merge_file)
 
-    if do_confirm and not confirm(f"Would you like to apply changes to: {df_current.name}?", canceled_msg="Merge canceled"):
+    if not confirm(f"Would you like to apply changes to: {df_current.name}?", canceled_msg="Merge canceled"):
         cleanup([tmp_current, tmp_conflict])
         return
 
     shutil.move(merge_file, df_current.path)
     df_current.update()
     cleanup([tmp_current, tmp_conflict])
+    return True
 
-def handle_dir_conflict(df_current, df_conflict, do_confirm=True):
+def handle_dir_conflict(df_current, df_conflict):
     # decrypt current and conflict dirs to tmp dirs
     tmp_current  = Path(tempfile.mkdtemp(prefix=f'current_{df_current.name}_'))
     tmp_conflict = Path(tempfile.mkdtemp(prefix=f'conflict_{df_current.name}_'))
@@ -277,14 +279,14 @@ def handle_dir_conflict(df_current, df_conflict, do_confirm=True):
     df_conflict.decrypt(dest=tmp_conflict / df_current.name)
 
     merge = MergeDir(tmp_current, tmp_conflict)
-    if not merge.merge(do_confirm=do_confirm):
+    if not merge.merge():
         cleanup([tmp_current, tmp_conflict])
         info("merge", "merge", "Merge canceled")
         return
 
-    if do_confirm and not confirm(f"Would you like to move all changes to: {df_current.name}?", canceled_msg="Merge canceled"):
+    if not confirm(f"Would you like to move all changes to: {df_current.name}?", canceled_msg="Merge canceled"):
         cleanup([tmp_current, tmp_conflict])
-        info("merge", "merge", "Merge canceled")
+        info("merge", "merge", "merge canceled")
         return
 
     if (was_linked := df_current.check_symlink()):
@@ -301,6 +303,7 @@ def handle_dir_conflict(df_current, df_conflict, do_confirm=True):
         df_current.link()
 
     cleanup([tmp_current, tmp_conflict])
+    return True
 
 
 def handle_conflict(df_current, df_conflict):
@@ -310,7 +313,11 @@ def handle_conflict(df_current, df_conflict):
         df_current.update()
 
     if df_current.is_file():
-        handle_file_conflict(df_current, df_conflict)
+        if not handle_file_conflict(df_current, df_conflict):
+            return
     else:
-        handle_dir_conflict(df_current, df_conflict)
+        if not handle_dir_conflict(df_current, df_conflict):
+            return
 
+    if confirm(f"Would you like to remove conflict file: {df_conflict.encrypted_path}?", canceled_msg="canceled"):
+        df_conflict.encrypted_path.unlink()

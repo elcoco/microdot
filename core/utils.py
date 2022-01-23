@@ -201,11 +201,13 @@ def colorize(string, color):
     colors['default']    = '\033[0m'
     return colors[color] + str(string) + colors["reset"]
 
-def confirm(msg, assume_yes=False):
+def confirm(msg, assume_yes=False, canceled_msg=None):
     if assume_yes:
         return True
     if input(msg + ' [y/N] ').lower() == 'y':
         return True
+    if canceled_msg != None:
+        info("confirm", "canceled", canceled_msg)
 
 def info(category: str, action: str, msg: str):
     category = str(category).ljust(CATEGORY_JUST)

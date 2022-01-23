@@ -180,8 +180,14 @@ class DotFileEncryptedBaseClass(DotFile):
             debug(self.name, 'mkdir', self.path.parent)
             self.path.parent.mkdir(parents=True)
 
-    def encrypt(self, src, key, force=False):
+    def encrypt(self, src, key=None, force=False):
         """ Do some encryption here and write to self.encrypted_path """
+        # TODO encrypt should decide on encrypted_path here because it depends on the given src
+
+        if key == None:
+            key = self._key
+
+        self.encrypted_path = self.get_encrypted_path(self.channel, self.name, src=src)
 
         # if dir, compress dir into tmp tar file
         if src.is_dir():
@@ -237,15 +243,17 @@ class DotFileEncryptedBaseClass(DotFile):
         print(f"{msg} cont hash:", sha)
         print(f"{msg} encr path:", self.encrypted_path)
 
-
     def update(self):
         """ If decrypted directory has changed, update encrypted file """
+        if not self.check_symlink():
+            logger.error(f"Dotfile not linked {self.name}")
+            return
         if not self.is_changed():
             return
         info(self.name, 'changed', self.path)
 
         old_encrypted_path = self.encrypted_path
-        self.encrypted_path = self.get_encrypted_path(self.channel, self.name)
+        #self.encrypted_path = self.get_encrypted_path(self.channel, self.name)
 
         self.encrypt(self.path, self._key, force=True)
         self.unlink()
@@ -256,11 +264,15 @@ class DotFileEncryptedBaseClass(DotFile):
 
     def is_changed(self):
         """ Checks current file md5 against last md5 """
-        return self.hash != get_hash(self.path)
+        return not self.check_symlink() or self.hash != get_hash(self.path)
 
-    def get_encrypted_path(self, channel, name):
-        #md5 = get_hash(self.path)
-        md5 = get_hash(Path.home() / name)
+    def get_encrypted_path(self, channel, name, src=None):
+        """ If src is specified, calculate hash from this source instead of standard decrypted data location """
+        if src == None:
+            md5 = get_hash(Path.home() / name)
+        else:
+            md5 = get_hash(src)
+
         ts = datetime.datetime.utcnow().strftime(TIMESTAMP_FORMAT)
         if self.is_dir():
             return channel / ENCRYPTED_DIR_FORMAT.format(name=name, ts=ts, md5=md5)
@@ -318,7 +330,6 @@ class DotDirEncrypted(DotFileEncryptedBaseClass):
             shutil.rmtree(dest, ignore_errors=False, onerror=None)
 
         # cant use pathlib's replace because files need to be on same filesystem
-        #logger.debug(f"Decrypt: moving: {tmp_dir / self.name} -> {self.path}")
         if dest:
             shutil.move((tmp_dir / self.name), dest)
             debug(self.name, "moved", f"{tmp_dir/self.name} -> {dest}")

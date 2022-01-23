@@ -13,153 +13,6 @@ from core.exceptions import MicrodotError
 
 logger = logging.getLogger("microdot")
 
-class MergeError(Exception):
-    pass
-
-
-@dataclass
-class Patch():
-    current: Path
-    patch: Path
-
-    def __post_init__(self):
-        self.editor = os.environ.get('EDITOR','vim') 
-
-    def list(self):
-        for i,l in enumerate(self.patch.read_text().split('\n')):
-            info("patch", "list", f"{str(i).rjust(3)}: {l}")
-
-    def apply(self):
-        """ Apply patch to current
-
-            patch:
-                -d DIR  --directory=DIR  Change the working directory to DIR first.
-                -p NUM  --strip=NUM      Strip NUM leading components from file names.
-                -s  --quiet  --silent    Work silently unless an error occurs.
-
-            returns: True if self.current is changed
-        """
-        # TODO use --merge flag for git style 3 way merge
-        if self.current.is_dir():
-            cmd = ['patch', f'--directory={str(self.current.absolute())}', '--strip=3', f'--input={str(self.patch.absolute())}']
-        else:
-            cmd = ['patch', f'--directory={str(self.current.parent.absolute())}', '--strip=2', f'--input={str(self.patch.absolute())}']
-
-        debug("patch", "apply", " ".join(cmd))
-        md5 = get_hash(self.current)
-
-        result = subprocess.run(cmd, capture_output=True)
-
-        if result.returncode != 0:
-            raise MicrodotError(f"Failed to apply patch: {cmd}\n{result.stdout.decode()}")
-
-        return md5 != get_hash(self.current)
-
-    def merge(self):
-        """ Merge a patch file into the current file
-
-            when providing an empty file as a common ancestor we get a nice merge file that can be edited manually
-            this writes to <current-version>
-            using the -p switch writes to stdout instead of <current-version>
-            git merge-file -p <current-version> <common-ancestor> <other-version>
-
-            # use -L to give labels to files
-            git merge-file -L current -L base -L conflicted -p file1.txt file.diff file2.txt
-        """
-        cmd = ['patch', '--merge=diff3', f'--directory={str(self.current.parent.absolute())}', '--strip=2', f'--input={str(self.patch.absolute())}']
-
-        result = subprocess.run(cmd, capture_output=True)
-
-        if result.returncode != 0:
-            raise MicrodotError(f"Failed to apply patch: {cmd}\n{result.stdout.decode()}")
-        print(result.stdout)
-        print(result.stderr)
-
-        self.edit(self.current)
-
-
-    def cleanup(self):
-        # remove temp patch file
-        self.patch.unlink()
-
-        if self.current.is_dir():
-            pass
-        else:
-            self.current.unlink()
-
-    def vimdiff(self, conflict):
-        """ Edit patch with $EDITOR
-            returns: True is self.patch is changed
-        """
-        debug("patch", "edit", f"{self.current}")
-        md5 = get_hash(self.current)
-
-        try:
-            # check=True raises CalledProcessError on non zero exit code
-            cmd = ['vimdiff', str(self.current.absolute()), str(conflict.absolute())]
-            result = subprocess.run(cmd, check=True)
-        except subprocess.CalledProcessError as e:
-            logger.error(e)
-            raise MicrodotError(f"Failed to execute editor: {' '.join(cmd)}")
-
-        return md5 != get_hash(self.current)
-
-    def edit(self, path=None):
-        """ Edit patch with $EDITOR
-            returns: True is self.patch is changed
-        """
-        if not path:
-            path=self.patch
-
-        debug("patch", "edit", f"{path}")
-        md5 = get_hash(path)
-
-        try:
-            # check=True raises CalledProcessError on non zero exit code
-            cmd = [self.editor, str(path.absolute())]
-            result = subprocess.run(cmd, check=True)
-        except subprocess.CalledProcessError as e:
-            logger.error(e)
-            raise MicrodotError(f"Failed to execute editor: {' '.join(cmd)}")
-
-        return md5 != get_hash(path)
-
-
-class Diff():
-    def __init__(self, current, conflict):
-        self.current = current
-        self.conflict = conflict
-
-    def create(self):
-        """ Run diff and generate patch.
-            Returns path to tmp patch file. 
-
-            diff:
-                -u, -U NUM, --unified[=NUM]   output NUM (default 3) lines of unified context
-                -r, --recursive               recursively compare any subdirectories found
-                -N, --new-file                treat absent files as empty
-        """
-        if not self.current.exists():
-            raise MicrodotError(f"File/dir doesn't exist: {self.current}")
-        if not self.conflict.exists():
-            raise MicrodotError(f"File/dir doesn't exist: {self.conflict}")
-
-        # diff -ruN current/ conflict/ > file.patch
-        cmd = ['diff', '--recursive', '--unified', '--new-file', str(self.current.absolute()), str(self.conflict.absolute())]
-
-        result = subprocess.run(cmd, capture_output=True)
-        if result.returncode == 1:
-            debug("diff", "create", "is different")
-        elif result.returncode == 0:
-            debug("diff", "create", "is same")
-            return
-        else:
-            raise MicrodotError(f"Error while running diff command: {' '.join(cmd)}\n{result.stderr.decode()}")
-
-        patch_path = Path(tempfile.mktemp())
-        patch_path.write_bytes(result.stdout)
-        return Patch(self.current, patch_path)
-
 
 @dataclass
 class MergeBaseClass():
@@ -235,14 +88,13 @@ class MergeFile(MergeBaseClass):
         merge_file = self.create_merge_file()
 
         if self.edit(merge_file):
-            info("merge", "merge", f"{self.current}")
             self.list(merge_file)
-            if do_confirm and not confirm(f"Would you like to apply changes to: {dest}?"):
+
+            if do_confirm and not confirm(f"Would you like to apply changes to: {dest}?", canceled_msg="Merge canceled"):
                 return
 
-            return shutil.move(merge_file, dest)
-        else:
-            info("merge", "merge", "canceled")
+            return merge_file
+
 
 
 @dataclass
@@ -306,7 +158,7 @@ class MergeDir(MergeBaseClass):
 
         return ret
 
-    def execute_merge_file(self, file):
+    def execute_merge_file(self, file, do_confirm=True):
         """ Parse the file/dir merge file we created and execute commands """
         for i,l in enumerate(file.read_text().split('\n'), start=1):
             l = l.strip()
@@ -325,7 +177,7 @@ class MergeDir(MergeBaseClass):
             elif l.startswith("merge"):
                 current, conflict = self.check_line(l, [1,3])
                 merge = MergeFile(current, conflict)
-                merge.merge()
+                merge.merge(do_confirm=do_confirm)
 
             else:
                 debug("merge", "parse", f"skip line: {l}")
@@ -364,54 +216,101 @@ class MergeDir(MergeBaseClass):
         self.edit(merge_file)
         return merge_file
 
-    def merge(self, dest):
+    def merge(self, do_confirm=True):
         dcmp = dircmp(self.current, self.conflict)
 
         merge_file = self.generate_merge_file()
         self.list(merge_file)
 
-        if confirm("Execute these changes?"):
-            self.execute_merge_file(merge_file)
+        if confirm("Execute these changes?", canceled_msg="Merge canceled"):
+            self.execute_merge_file(merge_file, do_confirm=do_confirm)
         else:
             merge_file.unlink()
+            info("merge", "merge", "Merge canceled")
             return
 
         merge_file.unlink()
-        if confirm("Move merged directory to system?"):
-            # TODO fix this, need to specify proper sub dir
-            return shutil.move(self.current, dest)
+        return self.current
 
 
-def handle_conflict(df_current, df_conflict):
-    # TODO start clean
-    #dotfile.update()
+def cleanup(items):
+    """ Cleanup list of files/dirs """
+    for item in items:
+        if item.is_dir():
+            shutil.rmtree(item, ignore_errors=False, onerror=None)
+        else:
+            item.unlink()
+        debug("cleanup", "removed", item)
 
-    tmp_current     = Path(tempfile.mkdtemp(prefix=f'current_{df_current.name}_')) if df_current.is_dir() else Path(tempfile.mktemp(prefix=f'current_{df_current.name}_'))
-    tmp_conflict = Path(tempfile.mkdtemp(prefix=f'conflict_{df_current.name}_')) if df_conflict.is_dir() else Path(tempfile.mktemp(prefix=f'conflict_{df_current.name}_'))
+def handle_file_conflict(df_current, df_conflict, do_confirm=True):
+    """ Go through the full process of handling a file conflict """
 
+    # decrypt current and conflict file to tmp files
+    tmp_current  = Path(tempfile.mktemp(prefix=f'current_{df_current.name}_'))
+    tmp_conflict = Path(tempfile.mktemp(prefix=f'conflict_{df_current.name}_'))
     df_current.decrypt(dest=tmp_current)
     df_conflict.decrypt(dest=tmp_conflict)
 
+    # perform merge
+    merge = MergeFile(tmp_current, tmp_conflict)
+
+    if not (merge_file := merge.merge(dest=df_current.path, do_confirm=do_confirm)):
+        info("merge", "merge", "Merge canceled")
+        cleanup([tmp_current, tmp_conflict])
+        return
+
+    merge.list(merge_file)
+
+    if do_confirm and not confirm(f"Would you like to apply changes to: {df_current.name}?", canceled_msg="Merge canceled"):
+        cleanup([tmp_current, tmp_conflict])
+        return
+
+    shutil.move(merge_file, df_current.path)
+    df_current.update()
+    cleanup([tmp_current, tmp_conflict])
+
+def handle_dir_conflict(df_current, df_conflict, do_confirm=True):
+    # decrypt current and conflict dirs to tmp dirs
+    tmp_current  = Path(tempfile.mkdtemp(prefix=f'current_{df_current.name}_'))
+    tmp_conflict = Path(tempfile.mkdtemp(prefix=f'conflict_{df_current.name}_'))
+    df_current.decrypt(dest=tmp_current / df_current.name)
+    df_conflict.decrypt(dest=tmp_conflict / df_current.name)
+
+    merge = MergeDir(tmp_current, tmp_conflict)
+    if not merge.merge(do_confirm=do_confirm):
+        cleanup([tmp_current, tmp_conflict])
+        info("merge", "merge", "Merge canceled")
+        return
+
+    if do_confirm and not confirm(f"Would you like to move all changes to: {df_current.name}?", canceled_msg="Merge canceled"):
+        cleanup([tmp_current, tmp_conflict])
+        info("merge", "merge", "Merge canceled")
+        return
+
+    if (was_linked := df_current.check_symlink()):
+        df_current.unlink()
+
+    old_encrypted_path = df_current.encrypted_path
+
+    df_current.encrypt(tmp_current / df_current.name)
+
+    # remove old encrypted file
+    old_encrypted_path.unlink()
+
+    if was_linked:
+        df_current.link()
+
+    cleanup([tmp_current, tmp_conflict])
+
+
+def handle_conflict(df_current, df_conflict):
+    # check if there are differences between decrypted and last encrypted versions of dotfile.
+    # update if necessary.
+    if df_current.is_changed():
+        df_current.update()
+
     if df_current.is_file():
-        try:
-            merge = MergeFile(tmp_current, tmp_conflict)
-            merge.merge(dest=df_current.path)
-            df_current.update()
-            return True
-        except MicrodotError as e:
-            logger.error(e)
-
+        handle_file_conflict(df_current, df_conflict)
     else:
-        try:
-            merge = MergeDir(tmp_current, tmp_conflict)
-            merge.merge(df_current.path)
-            df_current.update()
-            return True
-        except MicrodotError as e:
-            logger.error(e)
-
-    info("patch", "patch", "canceled")
-
-
-
+        handle_dir_conflict(df_current, df_conflict)
 

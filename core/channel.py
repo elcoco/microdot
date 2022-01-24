@@ -29,7 +29,6 @@ ENCRYPTED_FILE_FORMAT  = "{name}#{md5}#{ts}#F#CRYPT"
 # TODO this extension is used in sync but constant is not accessible
 CONFLICT_EXT = "#CONFLICT"
 
-
 # dirname relative to dotfiles dir to store decrypted files/dirs in
 DECRYPTED_DIR = 'decrypted'
 
@@ -68,6 +67,9 @@ TIMESTAMP_FORMAT = "%Y%m%d%H%M%S"
 
 class DotFile():
     def __init__(self, path, channel):
+        print(">>>", path)
+        """ path is where dotfile source is: /home/eco/.dotfiles/common/testfile.txt """
+
         self.channel = channel
         self.path = path
         self.name = path.relative_to(channel)
@@ -140,32 +142,43 @@ class DotFile():
         debug(self.name, 'moved', f'{src} -> {self.path}')
         self.link()
 
+    def do_encrypt(self, key):
+        """ Encrypt an unencrypted dotfile """
+        if (was_linked := self.check_symlink()):
+            self.unlink()
+
+        if self.path.is_dir():
+            df = DotDirEncrypted(self.path, self.channel, key)
+        else:
+            df = DotFileEncrypted(self.path, self.channel, key)
+        
 
 class DotFileEncryptedBaseClass(DotFile):
     """ Baseclass for all encrypted files/directories """
     def __init__(self, path, channel, key):
-        # parse ENCRYPTED file
-        try:
+        try: # parse ENCRYPTED file: ~/.dotfiles/common/testdir#IzjOuV4h#20220121162145#D#CRYPT
             name, self.hash, ts,  _, _ = path.name.split('#')
             self.path = channel.parent / DECRYPTED_DIR / channel.name / path.relative_to(channel).parent / name
             self.encrypted_path = path
             self.name = self.path.relative_to(channel.parent / DECRYPTED_DIR / channel.name)
             self.timestamp = datetime.datetime.strptime(ts, TIMESTAMP_FORMAT)
         except ValueError:
-            # parse CONFLICT file
-            try:
+            try: # parse CONFLICT file: ~/.dotfiles/common/testdir#IzjOuV4h#20220121162145#D#CRYPT
                 name, self.hash, ts,  _, _, _ = path.name.split('#')
                 self.path = channel.parent / DECRYPTED_DIR / channel.name / path.relative_to(channel).parent / name
                 self.encrypted_path = path
                 self.name = self.path.relative_to(channel.parent / DECRYPTED_DIR / channel.name)
                 self.timestamp = datetime.datetime.strptime(ts, TIMESTAMP_FORMAT)
             except ValueError:
-                # instantiated by self.init(), allow incomplete data. missing data will be added later
-                self.hash = None
-                self.path = channel.parent / DECRYPTED_DIR / channel.name / path.relative_to(channel)
-                self.name = path.relative_to(channel)
-                self.encrypted_path = self.get_encrypted_path(channel, self.name)
-                self.timestamp = datetime.datetime.utcnow()
+                try: # parse path that will be used by init to initiate new encrypted dotfile: ~/.dotfiles/common/testfile.txt
+                     # allow incomplete data. missing data will be added later
+                    self.hash = None
+                    self.path = channel.parent / DECRYPTED_DIR / channel.name / path.relative_to(channel)
+                    self.name = path.relative_to(channel)
+                    self.encrypted_path = self.get_encrypted_path(channel, self.name)
+                    self.timestamp = datetime.datetime.utcnow()
+                except ValueError:
+                    raise MicrodotError(f"Failed to parse path: {path}")
 
         self.channel = channel
         self.link_path = Path.home() / self.name
@@ -546,7 +559,6 @@ def get_channel(name, state, create=False, assume_yes=False):
     raise MicrodotError(f"This should be unreachable, failed to find channel: {name}")
 
 # TODO below should be part of channel class??
-
 def get_encrypted_dotfiles(linked=False, grouped=False):
     """ Return encrypted dotfiles
         grouped=True: doubles are grouped by filename

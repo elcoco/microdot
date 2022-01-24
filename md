@@ -51,7 +51,9 @@ logger = logging.getLogger("microdot")
 
 class App():
     def parse_args(self, state):
-        parser = argparse.ArgumentParser(description='Microdot :: Manage dotfiles in style')
+        #parser = argparse.ArgumentParser(prog='microdot', description='Microdot :: Manage dotfiles in style',
+        parser = argparse.ArgumentParser(prog='microdot', usage='%(prog)s [OPTIONS]', description='Gotta manage them dotfiles',
+                formatter_class=lambda prog: argparse.HelpFormatter(prog,max_help_position=42))
 
         parser.add_argument('-c', '--channel',        help='channel', metavar='NAME', default='common')
         parser.add_argument('-l', '--link',           help='link dotfile', metavar='DOT', default=None)
@@ -59,10 +61,11 @@ class App():
         parser.add_argument('-u', '--unlink',         help='unlink dotfile', metavar='DOT', default=None)
         parser.add_argument('-U', '--unlink-all',     help='unlink all dotfiles in channel', action='store_true')
         parser.add_argument('-i', '--init',           help='init dotfile', metavar='PATH', default=None)
-        parser.add_argument('-C', '--solve-conflict', help='solve conflict by merging', metavar=('CONFLICT'), default=None)
-        #parser.add_argument('-C', '--solve-conflict', help='solve conflict by merging', metavar=('DOT','CONFLICT'), nargs=2, default=None)
-        parser.add_argument('-s', '--sync',           help='sync repo', action='store_true')
         parser.add_argument('-e', '--encrypt',        help='encrypt file', action='store_true')
+        parser.add_argument('-E', '--encrypt-dotfile',help='encrypt file already initiated dotfile', metavar='DOT', default=None)
+        parser.add_argument('-C', '--solve-conflict', help='solve conflict by merging', metavar=('CONFLICT'), default=None)
+
+        parser.add_argument('-s', '--sync',           help='sync repo', action='store_true')
         parser.add_argument('-w', '--watch',          help='start git watch daemon', action='store_true')
         parser.add_argument('-d', '--dotfiles-dir',   help='dotfiles directory', metavar='DIR', default=None)
         parser.add_argument('-y', '--assume-yes',     help='answer yes to questions', action='store_true')
@@ -82,6 +85,7 @@ class App():
         state.do_watch        = args.watch
         state.do_sync         = args.sync
         state.do_solve        = args.solve_conflict
+        state.do_encrypt_df   = args.encrypt_dotfile
 
         if args.debug:
             logger.setLevel(logging.DEBUG)
@@ -130,6 +134,16 @@ class App():
                 return
             try:
                 dotfile.unlink()
+                info("main", "unlinked", f"{dotfile.path}")
+            except MicrodotError as e:
+                logger.error(e)
+
+        elif state.do_encrypt_df:
+            if not (dotfile := state.channel.get_dotfile(state.do_encrypt_df)):
+                logger.error(f"Dotfile not found: {state.do_encrypt_df}")
+                return
+            try:
+                dotfile.do_encrypt(state.encryption.key)
                 info("main", "unlinked", f"{dotfile.path}")
             except MicrodotError as e:
                 logger.error(e)

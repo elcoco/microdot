@@ -55,6 +55,9 @@ class DotFileBaseClass():
         return self.path.is_file()
 
     def link(self, target=None, force=False):
+        if self.check_symlink():
+            logger.error("Dotfile is already linked")
+
         link = self.link_path
 
         if not target:
@@ -79,8 +82,7 @@ class DotFileBaseClass():
     
     def unlink(self):
         if not self.check_symlink():
-            logger.error(f"Dotfile is not linked: {self.name}")
-            return
+            raise MicrodotError(f"Dotfile is not linked: {self.name}")
 
         self.link_path.unlink()
         debug(self.name, 'unlinked', self.link_path)
@@ -99,15 +101,26 @@ class DotFileBaseClass():
         else:
             path.unlink()
 
-    def do_encrypt(self, key):
+    def to_encrypted(self, key):
         """ Encrypt an unencrypted dotfile """
+        # TODO raises error because self.path doesn't exist
+        if self.is_encrypted:
+            raise MicrodotError(f"Dotfile is already encrypted: {self.name}")
+
         if (was_linked := self.check_symlink()):
             self.unlink()
+
+        path = self.path.relative_to(self.channel) / DECRYPTED_DIR / self.name
 
         if self.path.is_dir():
             df = DotDirEncrypted(self.path, self.channel, key)
         else:
             df = DotFileEncrypted(self.path, self.channel, key)
+
+        df.encrypt(self.path)
+        self.remove_path(self.path)
+        if was_linked:
+            df.link()
         
 
 class DotFileEncryptedBaseClass(DotFileBaseClass):
@@ -119,6 +132,11 @@ class DotFileEncryptedBaseClass(DotFileBaseClass):
             self.encrypted_path = path
             self.name = self.path.relative_to(channel.parent / DECRYPTED_DIR / channel.name)
             self.timestamp = datetime.datetime.strptime(ts, TIMESTAMP_FORMAT)
+
+            # cleanup orphan links (symlink that points to non existing data
+            # don't do this for conflict files or shit breaks loose
+            self.link_path = Path.home() / self.name
+            self.cleanup_link()
         except ValueError:
             try: # parse CONFLICT file: ~/.dotfiles/common/testdir#IzjOuV4h#20220121162145#D#CRYPT
                 name, self.hash, ts,  _, _, _ = path.name.split('#')
@@ -132,7 +150,11 @@ class DotFileEncryptedBaseClass(DotFileBaseClass):
                     self.hash = None
                     self.path = channel.parent / DECRYPTED_DIR / channel.name / path.relative_to(channel)
                     self.name = path.relative_to(channel)
-                    self.encrypted_path = self.get_encrypted_path(channel, self.name)
+                    try:
+                        self.encrypted_path = self.get_encrypted_path(channel, self.name)
+                    except FileNotFoundError:
+                        self.encrypted_path = None
+
                     self.timestamp = datetime.datetime.utcnow()
                 except ValueError:
                     raise MicrodotError(f"Failed to parse path: {path}")
@@ -142,8 +164,6 @@ class DotFileEncryptedBaseClass(DotFileBaseClass):
         self.is_encrypted = True
         self._key = key
 
-        # cleanup orphan links (symlink that points 
-        self.cleanup_link()
 
         # ensure decrypted dir exists
         if not self.path.parent.is_dir():
@@ -248,6 +268,22 @@ class DotFileEncryptedBaseClass(DotFileBaseClass):
         debug(self.name, 'init', f'removed original path: {src}')
         self.link()
 
+    def to_decrypted(self):
+        """ Convert encrypted dotfile to decrypted dotfile """
+        if not self.is_encrypted:
+            raise MicrodotError(f"Dotfile is already encrypted: {self.name}")
+
+        if (was_linked := self.check_symlink()):
+            self.unlink()
+
+        path = self.channel / self.name
+        self.decrypt(path)
+        self.encrypted_path.unlink()
+
+        if was_linked:
+            df = DotFileBaseClass(path, self.channel)
+            df.link()
+
 
 class DotFileEncrypted(DotFileEncryptedBaseClass):
     def __init__(self, *args):
@@ -342,7 +378,7 @@ class Channel():
             if d.name in SCAN_DIR_BLACKLIST:
                 continue
             if d.name not in search_dirs:
-                items.append(self.create_obj(d))
+                items += self.search_conflicts(d, search_dirs)
         return sorted(items, key=lambda item: item.name)
 
     def list(self):
@@ -398,6 +434,14 @@ class Channel():
     def get_dotfile(self, name):
         """ Get dotfile object by filename """
         for df in self.dotfiles:
+            if str(df.name) == str(name):
+                return df
+
+    def get_encrypted_dotfile(self, name):
+        """ Get an encrypted dotfile object by filename """
+        for df in self.dotfiles:
+            if not df.is_encrypted:
+                continue
             if str(df.name) == str(name):
                 return df
 

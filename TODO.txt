@@ -12,8 +12,6 @@
 
 # DONE encryption only works for files now
 
-# TODO add encrypt option to --link switch so we can encrypt an already initialized file
-#      ask the user to remove file from git cache
 
 # DONE use shorter base64 hashes
 # DONE call StatusList LastSyncIndex
@@ -35,3 +33,8 @@
 # DONE it should be possible to use update() without git functionality so the user can use eg nextcloud for syncing
 #      -g for git sync and -s for sync without git
 # DONE add warning to backup key when new key is created
+
+
+# DONE add encrypt option to --link switch so we can encrypt an already initialized file
+#      ask the user to remove file from git cache
+# DONE add unencrypt option

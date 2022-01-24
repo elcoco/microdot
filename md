@@ -28,8 +28,10 @@ class App():
         parser.add_argument('-U', '--unlink-all',     help='unlink all dotfiles in channel', action='store_true')
         parser.add_argument('-i', '--init',           help='init dotfile', metavar='PATH', default=None)
         parser.add_argument('-e', '--encrypt',        help='use together with --init to also encrypt file', action='store_true')
-        parser.add_argument('-E', '--encrypt-dotfile',help='encrypt file already initiated dotfile', metavar='DOT', default=None)
-        parser.add_argument('-C', '--solve-conflict', help='solve conflict by merging', metavar=('CONFLICT'), default=None)
+        parser.add_argument('-C', '--solve-conflict', help='solve conflict by merging', metavar='CONFLICT', default=None)
+
+        parser.add_argument('-x', '--to-decrypted',   help='decrypt an encrypted file', metavar='DOT', default=None)
+        parser.add_argument('-E', '--to_encrypted',   help='encrypt file already initiated dotfile', metavar='DOT', default=None)
 
         parser.add_argument('-s', '--sync',           help='sync/update decrypted with encrypted dotfiles', action='store_true')
         parser.add_argument('-g', '--use_git',        help='use together with --sync to also sync repo with git', action='store_true')
@@ -51,9 +53,11 @@ class App():
         state.do_force        = args.force
         state.do_watch        = args.watch
         state.do_sync         = args.sync
-        state.do_use_git     = args.use_git
+        state.do_use_git      = args.use_git
         state.do_solve        = args.solve_conflict
-        state.do_encrypt_df   = args.encrypt_dotfile
+
+        state.do_to_encrypted   = args.to_encrypted
+        state.do_to_decrypted   = args.to_decrypted
 
         if args.debug:
             logger.setLevel(logging.DEBUG)
@@ -106,13 +110,23 @@ class App():
             except MicrodotError as e:
                 logger.error(e)
 
-        elif state.do_encrypt_df:
-            if not (dotfile := state.channel.get_dotfile(state.do_encrypt_df)):
-                logger.error(f"Dotfile not found: {state.do_encrypt_df}")
+        elif state.do_to_encrypted:
+            if not (dotfile := state.channel.get_dotfile(state.do_to_encrypted)):
+                logger.error(f"Dotfile not found: {state.do_to_encrypted}")
                 return
             try:
-                dotfile.do_encrypt(state.encryption.key)
-                info("main", "unlinked", f"{dotfile.path}")
+                dotfile.to_encrypted(state.encryption.key)
+                info("main", "encrypted", f"{dotfile.path}")
+            except MicrodotError as e:
+                logger.error(e)
+
+        elif state.do_to_decrypted:
+            if not (dotfile := state.channel.get_encrypted_dotfile(state.do_to_decrypted)):
+                logger.error(f"Dotfile not found: {state.do_to_decrypted}")
+                return
+            try:
+                dotfile.to_decrypted()
+                info("main", "decrypted", f"{dotfile.path}")
             except MicrodotError as e:
                 logger.error(e)
 

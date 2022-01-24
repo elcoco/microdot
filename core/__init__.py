@@ -8,6 +8,10 @@ from core.gitignore import Gitignore
 
 from cryptography.fernet import Fernet
 
+try:
+    import pretty_errors
+except ImportError:
+    pass
 
 class CustomFormatter(logging.Formatter):
     """Logging Formatter to add colors and count warning / errors"""
@@ -91,14 +95,16 @@ state.do_link_all   = None
 state.do_unlink_all = None
 state.do_init       = None
 state.do_solve      = None
-state.do_encrypt_df = None
+
+state.do_to_encrypted = None
+state.do_to_decrypted = None
 
 state.do_watch      = False
 state.do_encrypt    = False
 state.do_assume_yes = False
 state.do_force      = False
 state.do_sync       = False
-state.do_use_git   = False
+state.do_use_git    = False
 
 
 # CONSTANTS should not be changed!!

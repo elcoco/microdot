@@ -47,13 +47,18 @@ class CustomFormatter(logging.Formatter):
         formatter = logging.Formatter(log_fmt)
         return formatter.format(record)
 
+
+# init lockfile
+lock = Lock('/tmp/microdot.lock')
+
+# init logging
 logger = logging.getLogger("microdot")
 ch = logging.StreamHandler()
 ch.setFormatter(CustomFormatter())
 logger.addHandler(ch)
 logger.setLevel(logging.INFO)
 
-# set config default state
+# init configfile and state
 state = Config(path=Path.home() / '.config/microdot/microdot.conf')
 state.core                   = {}
 state.core.dotfiles_dir      = str(Path.home() / '.dotfiles')
@@ -92,4 +97,22 @@ state.do_assume_yes = False
 state.do_force      = False
 state.do_sync       = False
 
-lock = Lock('/tmp/microdot.lock')
+
+# CONSTANTS should not be changed!!
+CONFLICT_EXT          = "#CONFLICT"
+ENCRYPTED_DIR_EXT     = "#D#CRYPT"
+ENCRYPTED_FILE_EXT    = "#F#CRYPT"
+CONFLICT_DIR_EXT      = ENCRYPTED_DIR_EXT + CONFLICT_EXT
+CONFLICT_FILE_EXT     = ENCRYPTED_FILE_EXT + CONFLICT_EXT
+ENCRYPTED_DIR_FORMAT  = "{name}#{md5}#{ts}" + ENCRYPTED_DIR_EXT
+ENCRYPTED_FILE_FORMAT = "{name}#{md5}#{ts}" + ENCRYPTED_FILE_EXT
+
+# format used in encrypted filenames
+TIMESTAMP_FORMAT = "%Y%m%d%H%M%S"
+
+# dirname relative to dotfiles dir to store decrypted files/dirs in
+DECRYPTED_DIR = 'decrypted'
+
+# skip these dirs when searching for channels and dotfiles
+SCAN_DIR_BLACKLIST     = [DECRYPTED_DIR]
+SCAN_CHANNEL_BLACKLIST = [DECRYPTED_DIR]

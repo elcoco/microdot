@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import ClassVar
 
 from core import lock, state
+from core import CONFLICT_EXT
 from core.exceptions import MicrodotError
 from core.channel import update_encrypted_from_decrypted, update_decrypted_from_encrypted, get_encrypted_dotfiles
 from core.logic import SyncAlgorithm
@@ -194,7 +195,7 @@ class Sync(SyncAlgorithm):
             msg.notify(error_interval=self.error_msg_interval)
 
     def get_conflict_name(self, path):
-        return f"{path}#CONFLICT"
+        return f"{path}{CONFLICT_EXT}"
 
     def sync(self):
         self.pre_sync()

@@ -16,6 +16,7 @@ CATEGORY_JUST = 10
 # characters to use instead of the filsystem unsafe +/
 BASE_64_ALT_CHARS = "@-"
 
+
 class Lock():
     """ Does lock things """
     def __init__(self, path):
@@ -202,6 +203,7 @@ def colorize(string, color):
     return colors[color] + str(string) + colors["reset"]
 
 def confirm(msg, assume_yes=False, canceled_msg=None):
+    """ Let user confirm, display canceled_msg on deny """
     if assume_yes:
         return True
     if input(msg + ' [y/N] ').lower() == 'y':
@@ -210,6 +212,7 @@ def confirm(msg, assume_yes=False, canceled_msg=None):
         info("confirm", "canceled", canceled_msg)
 
 def info(category: str, action: str, msg: str):
+    """ Display pretty messages """
     category = str(category).ljust(CATEGORY_JUST)
     category = colorize(category, 'green')
 
@@ -220,6 +223,7 @@ def info(category: str, action: str, msg: str):
     logger.info(f"{category} {action} {msg}")
 
 def debug(category: str, action: str, msg: str):
+    """ Display pretty messages """
     category = str(category).ljust(CATEGORY_JUST)
     category = colorize(category, 'green')
     action = action.ljust(ACTION_JUST)
@@ -252,18 +256,3 @@ def get_hash(path, n=8):
     md5.update(path.name.encode())
     get_rec_hash(path, md5)
     return base64.b64encode(md5.digest(), altchars=BASE_64_ALT_CHARS.encode()).decode()[:n]
-
-def get_hash_bak(path, n=8):
-    """ Get hash of file name and contents """
-    # TODO doesn't work when nested dir
-    m = hashlib.md5()
-    m.update(path.name.encode())
-
-    if path.is_dir():
-        # sometimes files are read in a different order so sort first!
-        for p in sorted(path.rglob("*"), key=lambda x: x.name):
-            m.update(p.read_bytes())
-            m.update(p.name.encode())
-    else:
-        m.update(path.read_bytes())
-    return base64.b64encode(m.digest(), altchars=BASE_64_ALT_CHARS.encode()).decode()[:n]

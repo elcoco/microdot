@@ -330,9 +330,8 @@ class DotDirEncrypted(DotFileEncryptedBaseClass):
             shutil.rmtree(dest, ignore_errors=False, onerror=None)
 
         # cant use pathlib's replace because files need to be on same filesystem
-        if dest:
-            shutil.move((tmp_dir / self.name), dest)
-            debug(self.name, "moved", f"{tmp_dir/self.name} -> {dest}")
+        shutil.move((tmp_dir / self.name), dest)
+        debug(self.name, "moved", f"{tmp_dir/self.name} -> {dest}")
 
         tmp_file.unlink()
 
@@ -403,54 +402,6 @@ class Channel():
                 items.append(self.create_obj(d))
         return sorted(items, key=lambda item: item.name)
 
-    def list_bak(self):
-        """ Pretty print all dotfiles """
-        print(colorize(f"\nchannel: {self.name}", self._colors.channel_name))
-
-        encrypted =  [d for d in self.dotfiles if d.is_dir() and d.is_encrypted]
-        encrypted += [f for f in self.dotfiles if f.is_file() and f.is_encrypted]
-        items =  [d for d in self.dotfiles if d.is_dir() and not d.is_encrypted]
-        items += [f for f in self.dotfiles if f.is_file() and not f.is_encrypted]
-
-
-        if len(items) == 0:
-            print(colorize(f"No dotfiles yet!", 'red'))
-            return
-
-        for item in items:
-            color = self._colors.linked if item.check_symlink() else self._colors.unlinked
-
-            if item.is_dir():
-                print(colorize(f"[D]  {item.name}", color))
-            else:
-                print(colorize(f"[F]  {item.name}", color))
-
-        for item in encrypted:
-            color = self._colors.linked if item.check_symlink() else self._colors.unlinked
-            if item.is_dir():
-                print(colorize(f"[ED] {item.name}", color), end='')
-            else:
-                print(colorize(f"[EF] {item.name}", color), end='')
-
-            print(colorize(f" {item.timestamp}", 'magenta'), end='')
-            print(colorize(f" {item.hash}", color))
-
-        for item in self.conflicts:
-            if item.is_dir():
-                print(colorize(f"[CD]", self._colors.conflict), end='')
-            else:
-                print(colorize(f"[CF]", self._colors.conflict), end='')
-            print(colorize(f" {item.timestamp}", 'magenta'), end='')
-            print(colorize(f" {item.encrypted_path.name}", 'red'))
-
-        #for item in self.conflicts:
-        #    if item.is_dir():
-        #        print(colorize(f"[CD] {item.name}", self._colors.conflict), end='')
-        #    else:
-        #        print(colorize(f"[CF] {item.name}", self._colors.conflict), end='')
-        #    print(colorize(f" {item.timestamp}", 'magenta'), end='')
-        #    print(colorize(f" {item.hash}", 'green'))
-
     def list(self):
         """ Pretty print all dotfiles """
         print(colorize(f"\nchannel: {self.name}", self._colors.channel_name))
@@ -479,20 +430,19 @@ class Channel():
             if item.is_dir():
                 cols.add([colorize(f"[ED]", color),
                           item.name,
-                          colorize(item.hash, color),
+                          colorize(item.hash, 'green'),
                           colorize(f"{item.timestamp}", 'magenta')])
             else:
                 cols.add([colorize(f"[EF]", color),
                           item.name,
-                          colorize(item.hash, color),
+                          colorize(item.hash, 'green'),
                           colorize(f"{item.timestamp}", 'magenta')])
         cols.show()
 
         #cols = Columnize()
-        cols = Columnize(prefix='>>', prefix_color='red')
+        cols = Columnize(prefix='  ', prefix_color='red')
         for item in self.conflicts:
             if item.is_dir():
-
                 cols.add([colorize(f"[CD]", self._colors.conflict),
                           colorize(f"{item.timestamp}", 'magenta'),
                           colorize(f"{item.encrypted_path.name}", "green")])

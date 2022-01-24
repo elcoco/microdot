@@ -62,7 +62,8 @@ class App():
         parser.add_argument('-u', '--unlink',         help='unlink dotfile', metavar='DOT', default=None)
         parser.add_argument('-U', '--unlink-all',     help='unlink all dotfiles in channel', action='store_true')
         parser.add_argument('-i', '--init',           help='init dotfile', metavar='PATH', default=None)
-        parser.add_argument('-C', '--solve-conflict', help='solve conflict by merging', metavar=('DOT','CONFLICT'), nargs=2, default=None)
+        parser.add_argument('-C', '--solve-conflict', help='solve conflict by merging', metavar=('CONFLICT'), default=None)
+        #parser.add_argument('-C', '--solve-conflict', help='solve conflict by merging', metavar=('DOT','CONFLICT'), nargs=2, default=None)
         parser.add_argument('-s', '--sync',           help='sync repo', action='store_true')
         parser.add_argument('-e', '--encrypt',        help='encrypt file', action='store_true')
         parser.add_argument('-w', '--watch',          help='start git watch daemon', action='store_true')
@@ -100,7 +101,7 @@ class App():
     def run(self):
         self.parse_args(state)
 
-        # Add linked encrypted files to the gitignore file
+        # make sure no decrypted files are committed to git
         gitignore = Gitignore(state.core.dotfiles_dir)
         gitignore.write()
 
@@ -159,14 +160,14 @@ class App():
                 logger.error(e)
 
         elif state.do_solve:
-            orig_path     = Path(state.do_solve[0])
-            conflict_path = Path(state.do_solve[1])
+            conflict_path = Path(state.do_solve)
+            orig_path = conflict_path.name.split('#')[0]
 
             if not (orig_df := state.channel.get_dotfile(orig_path)):
                 logger.error(f"Dotfile not found: {orig_path}")
                 return
             if not (conflict_df := state.channel.get_conflict(conflict_path)):
-                logger.error(f"Dotfile not found: {conflict_path}")
+                logger.error(f"Conflict not found: {conflict_path}")
                 return
             try:
                 handle_conflict(orig_df, conflict_df)
@@ -176,7 +177,6 @@ class App():
         else:
             for state.channel in get_channels(state):
                 state.channel.list()
-            return
 
 
 if __name__ == "__main__":

@@ -76,6 +76,7 @@ class MergeFile(MergeBaseClass):
         result = subprocess.run(cmd, capture_output=True)
 
         if result.returncode < 0:
+            cleanup([tmp_empty.unlink(), merge_file.unlink()])
             raise MicrodotError(f"Failed to merge: {' '.join(cmd)}\n{result.stdout.decode()}\n{result.stderr.decode()}")
 
         tmp_empty.unlink()
@@ -94,7 +95,6 @@ class MergeFile(MergeBaseClass):
                 return
 
             return merge_file
-
 
 
 @dataclass
@@ -263,7 +263,7 @@ def handle_file_conflict(df_current, df_conflict):
     merge.list(merge_file)
 
     if not confirm(f"Would you like to apply changes to: {df_current.name}?", canceled_msg="Merge canceled"):
-        cleanup([tmp_current, tmp_conflict])
+        cleanup([tmp_current, tmp_conflict, merge_file])
         return
 
     shutil.move(merge_file, df_current.path)
@@ -304,7 +304,6 @@ def handle_dir_conflict(df_current, df_conflict):
 
     cleanup([tmp_current, tmp_conflict])
     return True
-
 
 def handle_conflict(df_current, df_conflict):
     # check if there are differences between decrypted and last encrypted versions of dotfile.

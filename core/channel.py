@@ -12,46 +12,14 @@ from core.exceptions import MicrodotError
 from core import state
 from core import CONFLICT_EXT, ENCRYPTED_DIR_EXT, ENCRYPTED_FILE_EXT, ENCRYPTED_DIR_FORMAT, ENCRYPTED_FILE_FORMAT
 from core import CONFLICT_FILE_EXT, CONFLICT_DIR_EXT, TIMESTAMP_FORMAT, DECRYPTED_DIR, SCAN_CHANNEL_BLACKLIST, SCAN_DIR_BLACKLIST
-
 from core.utils import confirm, colorize, debug, info, get_hash, get_tar
 from core.utils import Columnize
 
-try:
-    from cryptography.fernet import Fernet
-    import cryptography
-except ImportError as e:
-    print(f"ImportError: {e}")
-    sys.exit(1)
+from cryptography.fernet import Fernet
+import cryptography
 
 logger = logging.getLogger("microdot")
 
-
-"""
-    You can add a new encrypted file with: $ md --init file.txt -e
-    This will:
-        - Move the file to the channel directory
-        - Encrypt the file, using the extension: .encrypted
-        - Decrypt the encrypted file and place it next to the encrypted file.
-        - Add the non-encrypted file to the .gitignore file to protect it from pushing to GIT.
-        
-    When linking an encrypted file:
-        The encrypted file will be visible in the list without the .encrypted extension but with a [E] marker
-        The encrypted file can be linked as normal with: $ md --link file.txt
-        This will:
-            - Decrypt the corresponding encrypted file and place it next to the encrypted file.
-            - Add the non-encrypted file to the .gitignore file to protect it from pushing to GIT.
-
-    When unlinking an encrypted file:
-        The encrypted file will be visible in the list without the .encrypted extension but with a [E] marker
-        The encrypted file can be unlinked as normal with: $ md --unlink file.txt
-        This will:
-            - Remove the link
-            - Remove the un-encrypte file
-            - Remove the file entry on the .gitignore file
-
-    When the repository is updated, the linked encrypted files need to be decrypted by using: $ md --update
-    We can automate this by managing the GIT repo for the user, but this will add more complexity.
-"""
 
 class DotFileBaseClass():
     def __init__(self, path, channel):
@@ -544,19 +512,8 @@ def get_encrypted_dotfiles(linked=False, grouped=False):
                 items.append(list(g))
         else:
             items += data
-
     return items
 
 def update_encrypted_from_decrypted():
     for df in get_encrypted_dotfiles(linked=True):
         df.update()
-
-def update_decrypted_from_encrypted(paths):
-    """ Redecrypt all encrypted dotfiles on update """
-    # TODO This is the only place in the code where state is not explicitly passed
-    #      It isn't pretty but this funciton is used as a callback, so yeah... needs fixin!
-    for p in paths:
-        channel = get_channel(p.parts[0], state, create=False)
-        df_path = p.relative_to(channel.name). with_suffix('')
-        dotfile = channel.get_dotfile(df_path)
-        dotfile.decrypt()

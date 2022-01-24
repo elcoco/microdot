@@ -7,9 +7,9 @@ from pathlib import Path
 from typing import ClassVar
 
 from core import lock
-from core import CONFLICT_EXT
+from core import CONFLICT_EXT, GIT_COMMIT_MSG
 from core.exceptions import MicrodotError
-from core.channel import update_encrypted_from_decrypted, update_decrypted_from_encrypted, get_encrypted_dotfiles
+from core.channel import update_encrypted_from_decrypted, get_encrypted_dotfiles
 from core.logic import SyncAlgorithm
 from core.utils import debug, info, get_hash
 
@@ -18,15 +18,10 @@ from git import Repo
 
 logger = logging.getLogger("microdot")
 
-COMMIT_MSG = 'update'
 
 class GitException(Exception):
     pass
 
-# TODO error notifications
-# DONE separate logic and execution of sync Sync() <> Watch()
-# DONE come up with better name for Watch()
-# DONE better info/debug messages
 
 @dataclass
 class Message():
@@ -111,7 +106,7 @@ class Git():
         staged = self._repo.index.diff("HEAD")
 
         if (diff := self._repo.index.diff("HEAD")):
-            commit = self._repo.index.commit(COMMIT_MSG)
+            commit = self._repo.index.commit(GIT_COMMIT_MSG)
             debug('git', 'commit', f'{len(diff)} changes: {commit}')
 
             for l in [self.parse_diff(l) for l in staged]:

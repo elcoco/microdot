@@ -2,7 +2,7 @@ from pathlib import Path
 import logging
 
 from core.config import Config
-from core.utils import Lock
+from core.utils import Lock, info
 from core.gitignore import Gitignore
 #from core.sync import StatusList
 
@@ -64,6 +64,7 @@ state.core                   = {}
 state.core.dotfiles_dir      = str(Path.home() / '.dotfiles')
 state.core.check_dirs        = ['.config']
 state.core.channel_blacklist = ['.git']
+state.core.default_channel   = 'common'
 state.encryption             = {}
 state.encryption.key         = Fernet.generate_key()
 state.colors                 = {}
@@ -78,6 +79,7 @@ state.notifications.error_interval = 60
 
 if not state.configfile_exists():
     state.write(commented=False)
+    info("init", "new_key", "New key created in config file, don't forget to backup!")
 
 state.load(merge=False)
 
@@ -96,6 +98,7 @@ state.do_encrypt    = False
 state.do_assume_yes = False
 state.do_force      = False
 state.do_sync       = False
+state.do_use_git   = False
 
 
 # CONSTANTS should not be changed!!

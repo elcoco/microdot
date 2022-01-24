@@ -25,9 +25,6 @@ except ImportError as e:
 
 logger = logging.getLogger("microdot")
 
-# TODO this extension is used in sync but constant is not accessible
-
-
 
 """
     You can add a new encrypted file with: $ md --init file.txt -e
@@ -389,7 +386,7 @@ class Channel():
         items =  [d for d in self.dotfiles if d.is_dir() and not d.is_encrypted]
         items += [f for f in self.dotfiles if f.is_file() and not f.is_encrypted]
 
-        if len(items) == 0:
+        if len(items) == 0 and len(encrypted) == 0:
             print(colorize(f"No dotfiles yet!", 'red'))
             return
 

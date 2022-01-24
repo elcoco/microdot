@@ -1,39 +1,5 @@
 #!/usr/bin/env python3
 
-# DONE don't show git dir as channel
-# TODO make blacklist configurable
-# DONE when linking or unlinking all, give a list of files before proceeding
-# DONE when linking or unlinking all, filter file list
-# DONE when internet is gone, gitpush will just skip. when internet reconnects, the push is not triggered again
-# DONE when a linked encrypted file is updated when using watch, update decrypted file
-# TODO when answered no when creating common channel, program crashes`
-
-# DONE when a decrypted file is edited it needs to sync with the encrypted file
-#      or changes get lost
-#      When linking/init encrypted file, a warning needs to display about non running daemons
-
-# DONE encryption only works for files now
-
-# TODO add encrypt option to --link switch so we can encrypt an already initialized file
-#      ask the user to remove file from git cache
-
-# DONE use shorter base64 hashes
-# DONE call StatusList LastSyncIndex
-# DONE filter out CONFLICT files
-# DONE add inspect function to inspect conflicted encrypted files
-# DONE use channel/decrypted for decrypted files/dirs
-# TODO when internet is back after a cut, wait a random amount of time.
-#      this way we don't get conflicts when all devices start pushing at the same time
-# DONE add info messages on normal operations, link, unlink etc
-# DONE link/unlink all exists when files are already linked
-#      when answering question a list of unlinked/linked files should display
-# DONE when linking, if a link already exists but doesn't point to correct file
-#      md starts complaining
-# DONE give nice list of conflicted files when listing
-# TODO maybe move all constants to global state object
-# DONE use columnize in list view
-# DONE cleanup all tmp files/dirs in diff.py
-
 import logging
 import argparse
 from pathlib import Path
@@ -55,17 +21,18 @@ class App():
         parser = argparse.ArgumentParser(prog='microdot', usage='%(prog)s [OPTIONS]', description='Gotta manage them dotfiles',
                 formatter_class=lambda prog: argparse.HelpFormatter(prog,max_help_position=42))
 
-        parser.add_argument('-c', '--channel',        help='channel', metavar='NAME', default='common')
+        parser.add_argument('-c', '--channel',        help='channel', metavar='NAME', default=state.core.default_channel)
         parser.add_argument('-l', '--link',           help='link dotfile', metavar='DOT', default=None)
         parser.add_argument('-L', '--link-all',       help='link all dotfiles in channel', action='store_true')
         parser.add_argument('-u', '--unlink',         help='unlink dotfile', metavar='DOT', default=None)
         parser.add_argument('-U', '--unlink-all',     help='unlink all dotfiles in channel', action='store_true')
         parser.add_argument('-i', '--init',           help='init dotfile', metavar='PATH', default=None)
-        parser.add_argument('-e', '--encrypt',        help='encrypt file', action='store_true')
+        parser.add_argument('-e', '--encrypt',        help='use together with --init to also encrypt file', action='store_true')
         parser.add_argument('-E', '--encrypt-dotfile',help='encrypt file already initiated dotfile', metavar='DOT', default=None)
         parser.add_argument('-C', '--solve-conflict', help='solve conflict by merging', metavar=('CONFLICT'), default=None)
 
-        parser.add_argument('-s', '--sync',           help='sync repo', action='store_true')
+        parser.add_argument('-s', '--sync',           help='sync/update decrypted with encrypted dotfiles', action='store_true')
+        parser.add_argument('-g', '--use_git',        help='use together with --sync to also sync repo with git', action='store_true')
         parser.add_argument('-w', '--watch',          help='start git watch daemon', action='store_true')
         parser.add_argument('-d', '--dotfiles-dir',   help='dotfiles directory', metavar='DIR', default=None)
         parser.add_argument('-y', '--assume-yes',     help='answer yes to questions', action='store_true')
@@ -84,6 +51,7 @@ class App():
         state.do_force        = args.force
         state.do_watch        = args.watch
         state.do_sync         = args.sync
+        state.do_use_git     = args.use_git
         state.do_solve        = args.solve_conflict
         state.do_encrypt_df   = args.encrypt_dotfile
 
@@ -97,7 +65,7 @@ class App():
             state.core.dotfiles_dir = Path(state.core.dotfiles_dir)
         
         # get or create channel
-        state.channel = get_channel(args.channel, state, create=True, assume_yes=state.do_assume_yes)
+        state.channel = get_channel(args.channel, state, create=True, assume_yes=True)
 
     def run(self):
         self.parse_args(state)
@@ -157,7 +125,10 @@ class App():
 
         elif state.do_sync:
             try:
-                s = Sync(state.core.dotfiles_dir, state.git.interval, state.notifications.error_interval)
+                s = Sync(state.core.dotfiles_dir,
+                         state.git.interval,
+                         state.notifications.error_interval,
+                         use_git=state.do_use_git)
                 with lock:
                     s.sync()
             except MicrodotError as e:
@@ -165,7 +136,10 @@ class App():
 
         elif state.do_watch:
             try:
-                s = Sync(state.core.dotfiles_dir, state.git.interval, state.notifications.error_interval)
+                s = Sync(state.core.dotfiles_dir,
+                         state.git.interval,
+                         state.notifications.error_interval,
+                         use_git=state.do_use_git)
                 s.watch_repo()
             except MicrodotError as e:
                 logger.error(e)

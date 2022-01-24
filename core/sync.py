@@ -6,7 +6,7 @@ from subprocess import Popen
 from pathlib import Path
 from typing import ClassVar
 
-from core import lock, state
+from core import lock
 from core import CONFLICT_EXT
 from core.exceptions import MicrodotError
 from core.channel import update_encrypted_from_decrypted, update_decrypted_from_encrypted, get_encrypted_dotfiles
@@ -173,19 +173,26 @@ class Git():
 
 
 class Sync(SyncAlgorithm):
-    def __init__(self, path, interval=3, error_msg_interval=30):
+    def __init__(self, path, interval=3, error_msg_interval=30, use_git=True):
         super().__init__()
 
-        try:
-            self.g = Git(path)
-        except GitException as e:
-            raise MicrodotError(e)
+        self.dotfiles_dir = path
+
+        self.use_git = use_git
+        if use_git:
+            self.init_git()
 
         if lock.is_locked():
             lock.release_lock()
 
         self.interval = interval
         self.error_msg_interval = error_msg_interval
+
+    def init_git(self):
+        try:
+            self.g = Git(self.dotfiles_dir)
+        except GitException as e:
+            raise MicrodotError(e)
 
     def pre_sync(self):
         # start in a fully synchronised state, unencrypted_data==encrypted_data
@@ -198,6 +205,10 @@ class Sync(SyncAlgorithm):
         return f"{path}{CONFLICT_EXT}"
 
     def sync(self):
+        if not self.use_git:
+            update_encrypted_from_decrypted()
+            return
+
         self.pre_sync()
 
         for dotfile in get_encrypted_dotfiles(grouped=True):

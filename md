@@ -30,12 +30,13 @@ class App():
         parser.add_argument('-e', '--encrypt',        help='use together with --init to also encrypt file', action='store_true')
         parser.add_argument('-C', '--solve-conflict', help='solve conflict by merging', metavar='CONFLICT', default=None)
 
-        parser.add_argument('-x', '--to-decrypted',   help='decrypt an encrypted file', metavar='DOT', default=None)
-        parser.add_argument('-E', '--to_encrypted',   help='encrypt file already initiated dotfile', metavar='DOT', default=None)
+        parser.add_argument('-x', '--to-decrypted',   help='decrypt an already encrypted file', metavar='DOT', default=None)
+        parser.add_argument('-E', '--to_encrypted',   help='encrypt an already initiated dotfile', metavar='DOT', default=None)
 
         parser.add_argument('-s', '--sync',           help='sync/update decrypted with encrypted dotfiles', action='store_true')
-        parser.add_argument('-g', '--use_git',        help='use together with --sync to also sync repo with git', action='store_true')
         parser.add_argument('-w', '--watch',          help='start git watch daemon', action='store_true')
+        parser.add_argument('-g', '--use_git',        help='use together with --sync|--watch to also sync repo with git', action='store_true')
+
         parser.add_argument('-d', '--dotfiles-dir',   help='dotfiles directory', metavar='DIR', default=None)
         parser.add_argument('-y', '--assume-yes',     help='answer yes to questions', action='store_true')
         parser.add_argument('-f', '--force',          help='overwrite file if exists', action='store_true')

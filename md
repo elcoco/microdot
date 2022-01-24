@@ -2,9 +2,8 @@
 
 # DONE don't show git dir as channel
 # TODO make blacklist configurable
-# TODO when linking or unlinking all, give a list of files before proceeding
-# TODO when linking or unlinking all, filter file list
-# TODO add option to stop daemon
+# DONE when linking or unlinking all, give a list of files before proceeding
+# DONE when linking or unlinking all, filter file list
 # DONE when internet is gone, gitpush will just skip. when internet reconnects, the push is not triggered again
 # DONE when a linked encrypted file is updated when using watch, update decrypted file
 # TODO when answered no when creating common channel, program crashes`
@@ -22,20 +21,18 @@
 # DONE call StatusList LastSyncIndex
 # DONE filter out CONFLICT files
 # DONE add inspect function to inspect conflicted encrypted files
-# TODO build better test
 # DONE use channel/decrypted for decrypted files/dirs
 # TODO when internet is back after a cut, wait a random amount of time.
 #      this way we don't get conflicts when all devices start pushing at the same time
 # DONE add info messages on normal operations, link, unlink etc
-# TODO link/unlink all exists when files are already linked
+# DONE link/unlink all exists when files are already linked
 #      when answering question a list of unlinked/linked files should display
-# TODO when linking, if a link already exists but doesn't point to correct file
+# DONE when linking, if a link already exists but doesn't point to correct file
 #      md starts complaining
-# TODO catch keyboard interrupt in link/unlink etc
 # DONE give nice list of conflicted files when listing
 # TODO maybe move all constants to global state object
-# TODO use columnize in list view
-# TODO cleanup all tmp files/dirs in diff.py
+# DONE use columnize in list view
+# DONE cleanup all tmp files/dirs in diff.py
 
 import logging
 import argparse

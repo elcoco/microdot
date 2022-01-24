@@ -463,13 +463,19 @@ class Channel():
                 return df
 
     def link_all(self, force=False, assume_yes=False):
+        dotfiles = [df for df in self.dotfiles if not df.check_symlink()]
+        for df in dotfiles:
+            info("link_all", "list", df.name)
         if confirm(f"Link all dotfiles in channel {self.name}?", assume_yes):
             for dotfile in self.dotfiles:
                 dotfile.link(force=force)
 
     def unlink_all(self, assume_yes=False):
+        dotfiles = [df for df in self.dotfiles if df.check_symlink()]
+        for df in dotfiles:
+            info("unlink_all", "list", df.name)
         if confirm(f"Unlink all dotfiles in channel {self.name}?", assume_yes):
-            for dotfile in self.dotfiles:
+            for dotfile in dotfiles:
                 dotfile.unlink()
 
     def init(self, path, encrypted=False):

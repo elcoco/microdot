@@ -10,8 +10,8 @@ import re
 
 logger = logging.getLogger("microdot")
 
-ACTION_JUST = 10
-CATEGORY_JUST = 10
+CATEGORY_JUST = 5
+ACTION_JUST = 5
 
 # characters to use instead of the filsystem unsafe +/
 BASE_64_ALT_CHARS = "@-"

@@ -60,7 +60,7 @@ class DotFileBaseClass():
 
     def link(self, target=None, force=False):
         if self.check_symlink():
-            logger.error("Dotfile is already linked")
+            raise MicrodotError(f"Dotfile is not linked: {self.name}")
 
         link = self.link_path
 
@@ -176,7 +176,7 @@ class DotFileEncryptedBaseClass(DotFileBaseClass):
             self.path.parent.mkdir(parents=True)
 
         # ensure encrypted dir exists
-        if not self.encrypted_path.parent.is_dir():
+        if self.encrypted_path and not self.encrypted_path.parent.is_dir():
             debug(self.name, 'mkdir', self.encrypted_path.parent)
             self.encrypted_path.parent.mkdir(parents=True)
 
@@ -494,7 +494,10 @@ class Channel():
             else:
                 raise MicrodotError(f"Don't know what to do with this path: {path}")
         else:
-            dotfile = DotFileBaseClass(src, self._path)
+            if path.is_file() or path.is_dir():
+                dotfile = DotFileBaseClass(src, self._path)
+            else:
+                raise MicrodotError(f"Don't know what to do with this path: {path}")
 
         #dotfile = self.create_obj(src)
 

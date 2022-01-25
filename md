@@ -125,7 +125,7 @@ class App():
 
         elif state.do_to_decrypted:
             if not (dotfile := state.channel.get_encrypted_dotfile(state.do_to_decrypted)):
-                die(f"Dotfile not found: {state.do_to_decrypted}")
+                die(f"Encrypted dotfile not found: {state.do_to_decrypted}")
             try:
                 dotfile.to_decrypted()
                 info("main", "decrypted", f"{dotfile.path}")

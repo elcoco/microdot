@@ -32,6 +32,10 @@ class DotFileBaseClass():
         self.is_encrypted = False
         self.cleanup_link()
 
+        if not self.path.parent.is_dir():
+            debug(self.name, 'mkdir', self.path.parent)
+            self.path.parent.mkdir(parents=True)
+
     def cleanup_link(self):
         # find orphan links (symlink that points 
         if self.link_path.is_symlink():
@@ -90,7 +94,8 @@ class DotFileBaseClass():
 
     def init(self, src):
         """ Move source path to dotfile location """
-        src.replace(self.path)
+        shutil.move(src, self.path)
+        #src.replace(self.path)
         debug(self.name, 'moved', f'{src} -> {self.path}')
         self.link()
 
@@ -169,6 +174,11 @@ class DotFileEncryptedBaseClass(DotFileBaseClass):
         if not self.path.parent.is_dir():
             debug(self.name, 'mkdir', self.path.parent)
             self.path.parent.mkdir(parents=True)
+
+        # ensure encrypted dir exists
+        if not self.encrypted_path.parent.is_dir():
+            debug(self.name, 'mkdir', self.encrypted_path.parent)
+            self.encrypted_path.parent.mkdir(parents=True)
 
     def encrypt(self, src, key=None, force=False):
         """ Do some encryption here and write to self.encrypted_path """
@@ -320,10 +330,11 @@ class DotDirEncrypted(DotFileEncryptedBaseClass):
 
         if dest.exists():
             shutil.rmtree(dest, ignore_errors=False, onerror=None)
+        # TODO new path doesn't exist yet
 
         # cant use pathlib's replace because files need to be on same filesystem
-        shutil.move((tmp_dir / self.name), dest)
-        debug(self.name, "moved", f"{tmp_dir/self.name} -> {dest}")
+        shutil.move((tmp_dir / self.name.name), dest)
+        debug(self.name, "moved", f"{tmp_dir/self.name.name} -> {dest}")
 
         tmp_file.unlink()
 

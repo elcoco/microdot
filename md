@@ -3,6 +3,7 @@
 import logging
 import argparse
 from pathlib import Path
+import sys
 
 from core.gitignore import Gitignore
 from core import state, lock
@@ -14,6 +15,10 @@ from core.merge import handle_conflict
 
 logger = logging.getLogger("microdot")
 
+
+def die(msg, code=1):
+    logger.error(msg)
+    sys.exit(code)
 
 class App():
     def parse_args(self, state):
@@ -83,60 +88,56 @@ class App():
             try:
                 state.channel.link_all(force=state.do_force, assume_yes=state.do_assume_yes)
             except MicrodotError as e:
-                logger.error(e)
+                die(e)
 
         elif state.do_unlink_all:
             try:
                 state.channel.unlink_all(assume_yes=state.do_assume_yes)
             except MicrodotError as e:
-                logger.error(e)
+                die(e)
 
         elif state.do_link:
             if not (dotfile := state.channel.get_dotfile(state.do_link)):
-                logger.error(f"Dotfile not found: {state.do_link}")
-                return
+                die(f"Dotfile not found: {state.do_link}")
             try:
                 dotfile.link(state.do_force)
                 info("main", "linked", f"{dotfile.link_path} -> {dotfile.path}")
             except MicrodotError as e:
-                logger.error(e)
+                die(e)
 
         elif state.do_unlink:
             if not (dotfile := state.channel.get_dotfile(state.do_unlink)):
-                logger.error(f"Dotfile not found: {state.do_unlink}")
-                return
+                die(f"Dotfile not found: {state.do_unlink}")
             try:
                 dotfile.unlink()
                 info("main", "unlinked", f"{dotfile.path}")
             except MicrodotError as e:
-                logger.error(e)
+                die(e)
 
         elif state.do_to_encrypted:
             if not (dotfile := state.channel.get_dotfile(state.do_to_encrypted)):
-                logger.error(f"Dotfile not found: {state.do_to_encrypted}")
-                return
+                die(f"Dotfile not found: {state.do_to_encrypted}")
             try:
                 dotfile.to_encrypted(state.encryption.key)
                 info("main", "encrypted", f"{dotfile.path}")
             except MicrodotError as e:
-                logger.error(e)
+                die(e)
 
         elif state.do_to_decrypted:
             if not (dotfile := state.channel.get_encrypted_dotfile(state.do_to_decrypted)):
-                logger.error(f"Dotfile not found: {state.do_to_decrypted}")
-                return
+                die(f"Dotfile not found: {state.do_to_decrypted}")
             try:
                 dotfile.to_decrypted()
                 info("main", "decrypted", f"{dotfile.path}")
             except MicrodotError as e:
-                logger.error(e)
+                die(e)
 
         elif state.do_init:
             try:
                 state.channel.init(Path(state.do_init), encrypted=state.do_encrypt)
                 info("main", "init", f"{state.do_init}")
             except MicrodotError as e:
-                logger.error(e)
+                die(e)
 
         elif state.do_sync:
             try:
@@ -147,7 +148,7 @@ class App():
                 with lock:
                     s.sync()
             except MicrodotError as e:
-                logger.error(e)
+                die(e)
 
         elif state.do_watch:
             try:
@@ -157,26 +158,26 @@ class App():
                          use_git=state.do_use_git)
                 s.watch_repo()
             except MicrodotError as e:
-                logger.error(e)
+                die(e)
 
         elif state.do_solve:
             conflict_path = Path(state.do_solve)
             orig_path = conflict_path.name.split('#')[0]
 
             if not (orig_df := state.channel.get_dotfile(orig_path)):
-                logger.error(f"Dotfile not found: {orig_path}")
-                return
+                die(f"Dotfile not found: {orig_path}")
             if not (conflict_df := state.channel.get_conflict(conflict_path)):
-                logger.error(f"Conflict not found: {conflict_path}")
-                return
+                die(f"Conflict not found: {conflict_path}")
             try:
                 handle_conflict(orig_df, conflict_df)
             except MicrodotError as e:
-                logger.error(e)
+                die(e)
 
         else:
             for state.channel in get_channels(state):
                 state.channel.list()
+
+        sys.exit(0)
 
 
 if __name__ == "__main__":

@@ -13,6 +13,7 @@ from core.channel import get_channel
 from core import state
 from core.utils import info
 from core.exceptions import MicrodotError
+from core.sync import Sync
 
 logger = logging.getLogger("microdot")
 
@@ -52,23 +53,51 @@ class TestInit(unittest.TestCase):
         sub_file1 = (subdir / 'file1.txt').write_text("bevers")
         return path
 
+    def test_init_impossible_input(self):
+        df = state.channel.init(self.testfile, encrypted=False)
+        df.unlink()
+
+        # re-init channels/dotfiles
+        state.channel = get_channel('common', state, create=True, assume_yes=True)
+
+        # try to init an already existing file
+        self.testfile.write_text("second attempt")
+        with self.assertRaises(MicrodotError):
+            state.channel.init(self.testfile, encrypted=False)
+
+        # try to init a link
+        l = Path.home() / 'xxxtestlink'
+        l.symlink_to(self.testfile)
+        self.addCleanup(self.cleanup, l)
+
+        with self.assertRaises(MicrodotError):
+            state.channel.init(l, encrypted=False)
+
     def test_get_non_existing_things(self):
-        # check that channel is created when requested
-        state.channel = get_channel('non_existing', state, create=True, assume_yes=True)
-        self.assertTrue((state.core.dotfiles_dir / 'non_existing').is_dir())
+        with self.subTest():
+            # check that non existing channel is created when requested
+            state.channel = get_channel('non_existing', state, create=True, assume_yes=True)
+            self.assertTrue((state.core.dotfiles_dir / 'non_existing').is_dir())
 
-        # try to get non existing dotfile
-        self.assertTrue(state.channel.get_dotfile("non_existing") == None)
+        with self.subTest():
+            # try to get non existing dotfile
+            with self.assertRaises(MicrodotError):
+                state.channel.get_dotfile("non_existing")
 
-        # try to get non existing encrypted dotfile
-        self.assertTrue(state.channel.get_encrypted_dotfile("non_existing") == None)
+        with self.subTest():
+            # try to get non existing encrypted dotfile
+            with self.assertRaises(MicrodotError):
+                state.channel.get_encrypted_dotfile("non_existing")
 
-        # try to init non existing files
-        with self.assertRaises(MicrodotError):
-            state.channel.init(Path("non_existing"), encrypted=False)
+        with self.subTest():
+            # try to init non existing files
+            with self.assertRaises(MicrodotError):
+                state.channel.init(Path("non_existing"), encrypted=False)
 
-        with self.assertRaises(MicrodotError):
-            state.channel.init(Path("non_existing"), encrypted=True)
+        with self.subTest():
+            # try to init non existing encrypted files
+            with self.assertRaises(MicrodotError):
+                state.channel.init(Path("non_existing"), encrypted=True)
 
     def test_init_link_unlink_unencrypted_file(self):
         # action
@@ -339,6 +368,25 @@ class TestInit(unittest.TestCase):
         self.assertTrue(ddf.name == df.name)
         self.assertTrue(ddf.name == edf.name)
 
+    def test_sync_without_git(self):
+        # assume
+        f = self.testdir / 'newfile.txt'
+        decrypted_dir = Path(tempfile.mkdtemp(prefix=f'decrypted_'))
+        content = "update"
+
+        self.addCleanup(self.cleanup, decrypted_dir)
+
+        # action
+        df = state.channel.init(self.testdir, encrypted=True)
+
+        old_encrypted_path = df.encrypted_path
+        f.write_text(content)
+
+        s = Sync(state.core.dotfiles_dir,
+                 state.git.interval,
+                 state.notifications.error_interval,
+                 use_git=False)
+        # TODO finnish this
 
 
 if __name__ == '__main__':

@@ -7,6 +7,7 @@ import tarfile
 import tempfile
 from itertools import groupby
 import datetime
+import re
 
 from core.exceptions import MicrodotError
 from core import state
@@ -392,6 +393,25 @@ class Channel():
                 items += self.search_conflicts(d, search_dirs)
         return sorted(items, key=lambda item: item.name)
 
+    def parse_conflict(self, name):
+        """ Use regex to parse conflict file name, return colored string """
+        try:
+            r = re.search(r"(.+)#(.+)#([0-9]+)#([A-Z])#([A-Z]+)#([A-Z]+)", name)
+        except re.error as e:
+            raise MicrodotError(f"Failed to parse string, {e}")
+        except TypeError as e:
+            raise MicrodotError(f"Failed to parse string, {e}")
+
+        n = []
+        n.append(colorize(r.group(1), 'default'))
+        n.append(colorize(r.group(2), 'green'))
+        n.append(colorize(r.group(3), 'magenta'))
+        n.append(colorize(r.group(4), 'blue'))
+        n.append(colorize(r.group(5), 'blue'))
+        n.append(colorize(r.group(6), 'blue'))
+        return colorize('#', 'default').join(n)
+
+
     def list(self):
         """ Pretty print all dotfiles """
         print(colorize(f"\nchannel: {self.name}", self._colors.channel_name))
@@ -429,24 +449,29 @@ class Channel():
                           colorize(f"{item.timestamp}", 'magenta')])
         cols.show()
 
+        
         #cols = Columnize()
         cols = Columnize(prefix='  ', prefix_color='red')
         for item in self.conflicts:
+
+            # color format conflict string
+            name = self.parse_conflict(item.encrypted_path.name)
+
             if item.is_dir():
                 cols.add([colorize(f"[CD]", self._colors.conflict),
-                          colorize(f"{item.timestamp}", 'magenta'),
-                          colorize(f"{item.encrypted_path.name}", "green")])
+                          name])
             else:
                 cols.add([colorize(f"[CF]", self._colors.conflict),
-                          colorize(f"{item.timestamp}", 'magenta'),
-                          colorize(f"{item.encrypted_path.name}", "green")])
+                          name])
         cols.show()
 
     def get_dotfile(self, name):
         """ Get dotfile object by filename """
+        # TODO should raise exception on not found?
         for df in self.dotfiles:
             if str(df.name) == str(name):
                 return df
+        raise MicrodotError(f"Dotfile not found: {name}")
 
     def get_encrypted_dotfile(self, name):
         """ Get an encrypted dotfile object by filename """
@@ -455,30 +480,35 @@ class Channel():
                 continue
             if str(df.name) == str(name):
                 return df
+        raise MicrodotError(f"Encrypted dotfile not found: {name}")
 
     def get_conflict(self, name):
         """ Get DotFile object by conflict file name """
         for df in self.conflicts:
             if str(df.encrypted_path.name) == str(name):
                 return df
+        raise MicrodotError(f"Conflict not found: {name}")
 
-    def link_all(self, force=False, assume_yes=False):
+    def link_all(self, force=False):
         """ Link all dotfiles in channel """
         dotfiles = [df for df in self.dotfiles if not df.check_symlink()]
-        for df in dotfiles:
-            info("link_all", "list", df.name)
-        if confirm(f"Link all dotfiles in channel {self.name}?", assume_yes):
-            for dotfile in self.dotfiles:
-                dotfile.link(force=force)
+        if not (dotfiles := [df for df in self.dotfiles if not df.check_symlink()]):
+            info("link_all", "link_all", "Nothing to link")
+            return
 
-    def unlink_all(self, assume_yes=False):
+        for dotfile in dotfiles:
+            dotfile.link(force=force)
+            info("link_all", "linked", dotfile.name)
+
+    def unlink_all(self):
         """ Unlink all dotfiles in channel """
-        dotfiles = [df for df in self.dotfiles if df.check_symlink()]
-        for df in dotfiles:
-            info("unlink_all", "list", df.name)
-        if confirm(f"Unlink all dotfiles in channel {self.name}?", assume_yes):
-            for dotfile in dotfiles:
-                dotfile.unlink()
+        if not (dotfiles := [df for df in self.dotfiles if df.check_symlink()]):
+            info("unlink_all", "unlink_all", "Nothing to link")
+            return
+
+        for dotfile in dotfiles:
+            dotfile.unlink()
+            info("unlink_all", "unlinked", dotfile.name)
 
     def init(self, path, encrypted=False):
         """ Start using a dotfile.
@@ -499,19 +529,20 @@ class Channel():
             else:
                 raise MicrodotError(f"Don't know what to do with this path: {path}")
 
-        #dotfile = self.create_obj(src)
+        # raise error if dotfile already exists
+        try:
+            df = self.get_dotfile(dotfile.name)
+        except MicrodotError:
+            df = False
 
-        if self.get_dotfile(dotfile.name):
-            logger.error(f"Dotfile already exists in channel: {dotfile.name}")
-            return
+        if df:
+            raise MicrodotError(f"Dotfile already exists: {dotfile.name}")
 
         if not (path.is_file() or path.is_dir()):
-            logger.error(f"Source path is not a file or directory: {path}")
-            return
+            raise MicrodotError(f"Source path is not a file or directory: {path}")
 
         if path.is_symlink():
-            logger.error(f"Source path is a symlink: {path}")
-            return
+            raise MicrodotError(f"Source path is a symlink: {path}")
 
         dotfile.init(path)
         return dotfile

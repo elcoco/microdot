@@ -65,6 +65,12 @@ class App():
         state.do_to_encrypted   = args.to_encrypted
         state.do_to_decrypted   = args.to_decrypted
 
+        if args.encrypt and not args.init:
+            raise MicrodotError("Use --encrypt together with --init")
+
+        if args.use_git and not (args.sync or args.watch):
+            raise MicrodotError("Use --use_git together with --sync or --watch")
+
         if args.debug:
             logger.setLevel(logging.DEBUG)
 
@@ -78,7 +84,10 @@ class App():
         state.channel = get_channel(args.channel, state, create=True, assume_yes=True)
 
     def run(self):
-        self.parse_args(state)
+        try:
+            self.parse_args(state)
+        except MicrodotError as e:
+            die(e)
 
         # make sure no decrypted files are committed to git
         gitignore = Gitignore(state.core.dotfiles_dir)
@@ -86,47 +95,43 @@ class App():
 
         if state.do_link_all:
             try:
-                state.channel.link_all(force=state.do_force, assume_yes=state.do_assume_yes)
+                state.channel.link_all(force=state.do_force)
             except MicrodotError as e:
                 die(e)
 
         elif state.do_unlink_all:
             try:
-                state.channel.unlink_all(assume_yes=state.do_assume_yes)
+                state.channel.unlink_all()
             except MicrodotError as e:
                 die(e)
 
         elif state.do_link:
-            if not (dotfile := state.channel.get_dotfile(state.do_link)):
-                die(f"Dotfile not found: {state.do_link}")
             try:
+                dotfile = state.channel.get_dotfile(state.do_link)
                 dotfile.link(state.do_force)
                 info("main", "linked", f"{dotfile.link_path} -> {dotfile.path}")
             except MicrodotError as e:
                 die(e)
 
         elif state.do_unlink:
-            if not (dotfile := state.channel.get_dotfile(state.do_unlink)):
-                die(f"Dotfile not found: {state.do_unlink}")
             try:
+                dotfile = state.channel.get_dotfile(state.do_unlink)
                 dotfile.unlink()
                 info("main", "unlinked", f"{dotfile.path}")
             except MicrodotError as e:
                 die(e)
 
         elif state.do_to_encrypted:
-            if not (dotfile := state.channel.get_dotfile(state.do_to_encrypted)):
-                die(f"Dotfile not found: {state.do_to_encrypted}")
             try:
+                dotfile = state.channel.get_dotfile(state.do_to_encrypted)
                 dotfile.to_encrypted(state.encryption.key)
                 info("main", "encrypted", f"{dotfile.path}")
             except MicrodotError as e:
                 die(e)
 
         elif state.do_to_decrypted:
-            if not (dotfile := state.channel.get_encrypted_dotfile(state.do_to_decrypted)):
-                die(f"Encrypted dotfile not found: {state.do_to_decrypted}")
             try:
+                dotfile = state.channel.get_dotfile(state.do_to_decrypted)
                 dotfile.to_decrypted()
                 info("main", "decrypted", f"{dotfile.path}")
             except MicrodotError as e:
@@ -164,11 +169,9 @@ class App():
             conflict_path = Path(state.do_solve)
             orig_path = conflict_path.name.split('#')[0]
 
-            if not (orig_df := state.channel.get_dotfile(orig_path)):
-                die(f"Dotfile not found: {orig_path}")
-            if not (conflict_df := state.channel.get_conflict(conflict_path)):
-                die(f"Conflict not found: {conflict_path}")
             try:
+                orig_df = state.channel.get_encrypted_dotfile(orig_path)
+                conflict_df = state.channel.get_conflict(conflict_path)
                 handle_conflict(orig_df, conflict_df)
             except MicrodotError as e:
                 die(e)

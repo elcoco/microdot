@@ -250,7 +250,6 @@ class Sync(SyncAlgorithm):
         #       for entries that don't have corresponding data on filesystem and remove
         #       this decrypted data if found
 
-        # flatten list
         dotfiles = get_encrypted_dotfiles()
         self.check_removed(dotfiles)
 

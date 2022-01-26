@@ -411,7 +411,6 @@ class Channel():
         n.append(colorize(r.group(6), 'blue'))
         return colorize('#', 'default').join(n)
 
-
     def list(self):
         """ Pretty print all dotfiles """
         print(colorize(f"\nchannel: {self.name}", self._colors.channel_name))
@@ -449,7 +448,6 @@ class Channel():
                           colorize(f"{item.timestamp}", 'magenta')])
         cols.show()
 
-        
         #cols = Columnize()
         cols = Columnize(prefix='  ', prefix_color='red')
         for item in self.conflicts:

@@ -1,24 +1,20 @@
 #!/usr/bin/env python3
 
+import sys
 import logging
 import argparse
 from pathlib import Path
-import sys
 
 from core.gitignore import Gitignore
 from core import state, lock
 from core.channel import get_channels, get_channel
 from core.exceptions import MicrodotError
 from core.sync import Sync
-from core.utils import info, debug
+from core.utils import info, debug, die
 from core.merge import handle_conflict
 
 logger = logging.getLogger("microdot")
 
-
-def die(msg, code=1):
-    logger.error(msg)
-    sys.exit(code)
 
 class App():
     def parse_args(self, state):
@@ -83,7 +79,7 @@ class App():
         # get or create channel
         state.channel = get_channel(args.channel, state, create=True, assume_yes=True)
 
-    def run(self):
+    def setup(self):
         try:
             self.parse_args(state)
         except MicrodotError as e:
@@ -92,6 +88,9 @@ class App():
         # make sure no decrypted files are committed to git
         gitignore = Gitignore(state.core.dotfiles_dir)
         gitignore.write()
+
+    def run(self):
+        self.setup()
 
         if state.do_link_all:
             try:
@@ -175,7 +174,6 @@ class App():
                 handle_conflict(orig_df, conflict_df)
             except MicrodotError as e:
                 die(e)
-
         else:
             for state.channel in get_channels(state):
                 state.channel.list()

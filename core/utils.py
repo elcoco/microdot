@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 import inspect
 import time
@@ -230,6 +231,10 @@ def debug(category: str, action: str, msg: str):
     action = colorize(action, 'magenta')
     msg = colorize(msg, 'white')
     logger.debug(f"{category} {action} {msg}")
+
+def die(msg, code=1):
+    logger.error(msg)
+    sys.exit(code)
 
 def get_tar(src):
     """ Compress path into tar archive and save in tmp file """

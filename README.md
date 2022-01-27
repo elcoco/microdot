@@ -58,8 +58,8 @@ This would create a directory structure similar to this:
     └── .gitignore
 where: 
 
-- the encrypted file is at: ```~/.dotfiles/common/.config/dotfile.txt#vWHbAUqC#20220126212324#F#CRYPT```.  
-- the unencrypted file is at: ```~/.dotfiles/decrypted/common/.config/dotfile.txt```.  
+- the encrypted file is at: ```~/.dotfiles/common/.config/dotfile.txt#vWHbAUqC#20220126212324#F#CRYPT```
+- the unencrypted file is at: ```~/.dotfiles/decrypted/common/.config/dotfile.txt```
 
 
 Link and unlink an initialized dotfile:

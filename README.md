@@ -93,6 +93,8 @@ To fix this problem Microdot adds a sync layer on top of git to identify new ver
 To run the sync daemon:
 
     $ md --sync --use-git
+
+    # or as a daemon:
     $ md --watch --use-git
 
 In case of a conflict a conflict file is created in the dotfiles directory.  

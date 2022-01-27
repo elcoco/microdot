@@ -1,30 +1,28 @@
 # Microdot :: a simple dotfiles manager
 
 ## Features:
-- **Channels:** Files are organized in channels. You can keep channels with sets of dotfiles for separate computers.
-- **Encryption:** Files can be encrypted individually. An optional daemon can
-watch the unencrypted dotfile for changes and automatically keep the encrypted file up to date.
-- **Git sync:** Syncing to a git repo can be enabled. Encrypted files are automatically kept up to date
-between machines.
+- **Channels:** Files are organized in channels. You can keep channels with sets of dotfiles for separate computers. Or keep common sets of dotfiles that are shared between computers.  
+- **Encryption:** Files can be encrypted individually. An optional daemon can watch the unencrypted dotfile for changes and automatically keep the encrypted file up to date.
+- **Git sync:** The daemon can sync to a git repo.
 - **Conflict resolution:** If a sync conflict occurs between encrypted files, microdot enables you to merge the files manually.
 
 ## Usage:
-Start using (initiate) a dotfile
+Start using (initiate) a dotfile:
 
     md --init ~/.config/dotfile.txt
 
-Start using a dotfile and use encryption
+Same, but use encryption this time:
 
     md --encrypt --init ~/.config/dotfile.txt
 
-Link and unlink an initialized dotfile
+Link and unlink an initialized dotfile:
 
     # when initialized you only have to specify the path relative to the home directory
     # eg:
     md --link .config/dotfile.txt
     md --unlink .config/dotfile.txt
 
-Link/unlink all dotfiles in a channel:
+Link and unlink all dotfiles in a channel:
 
     # not specifying a channel defaults to the "common" channel
     md --link-all

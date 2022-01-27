@@ -78,7 +78,7 @@ where:
     $ md --link-all --channel my_hostname
     $ md --unlink-all --channel my_hostname
 
-### Encrypt/decrypt an already initialized dotfile
+### Encrypt and decrypt an already initialized dotfile
 
     $ md --to-encrypted  .config/dotfile.txt
     $ md --to-decrypted  .config/dotfile.txt

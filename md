@@ -28,20 +28,23 @@ class App():
         parser.add_argument('-u', '--unlink',         help='unlink dotfile', metavar='DOT', default=None)
         parser.add_argument('-U', '--unlink-all',     help='unlink all dotfiles in channel', action='store_true')
         parser.add_argument('-i', '--init',           help='init dotfile', metavar='PATH', default=None)
-        parser.add_argument('-e', '--encrypt',        help='use together with --init to also encrypt file', action='store_true')
-        parser.add_argument('-C', '--solve-conflict', help='solve conflict by merging', metavar='CONFLICT', default=None)
+        parser.add_argument('-e', '--encrypt',        help='use together with --init to encrypt file', action='store_true')
+        parser.add_argument('-C', '--solve-conflict', help='solve conflict by manual merging', metavar='CONFLICT', default=None)
 
         parser.add_argument('-x', '--to-decrypted',   help='decrypt an already encrypted file', metavar='DOT', default=None)
-        parser.add_argument('-E', '--to_encrypted',   help='encrypt an already initiated dotfile', metavar='DOT', default=None)
+        parser.add_argument('-E', '--to-encrypted',   help='encrypt an already initiated dotfile', metavar='DOT', default=None)
 
         parser.add_argument('-s', '--sync',           help='sync/update decrypted with encrypted dotfiles', action='store_true')
-        parser.add_argument('-w', '--watch',          help='start git watch daemon', action='store_true')
-        parser.add_argument('-g', '--use_git',        help='use together with --sync|--watch to also sync repo with git', action='store_true')
+        parser.add_argument('-w', '--watch',          help='start git sync daemon', action='store_true')
+        parser.add_argument('-g', '--use-git',        help='use together with --sync|--watch to sync repo with git', action='store_true')
 
-        parser.add_argument('-d', '--dotfiles-dir',   help='dotfiles directory', metavar='DIR', default=None)
-        parser.add_argument('-y', '--assume-yes',     help='answer yes to questions', action='store_true')
-        parser.add_argument('-f', '--force',          help='overwrite file if exists', action='store_true')
+        parser.add_argument('-d', '--dotfiles-dir',   help='specify dotfiles directory', metavar='DIR', default=None)
+        parser.add_argument('-y', '--assume-yes',     help='assume  yes to questions', action='store_true')
+        parser.add_argument('-f', '--force',          help='force overwrite files/dirs', action='store_true')
         parser.add_argument('-D', '--debug',          help='enable debug', action='store_true')
+
+        # for use in command completion script, suppress visibility in help output
+        parser.add_argument('--get-opts',             help=argparse.SUPPRESS, action="store_true")
 
         args = parser.parse_args()
 
@@ -60,6 +63,11 @@ class App():
 
         state.do_to_encrypted   = args.to_encrypted
         state.do_to_decrypted   = args.to_decrypted
+
+        # used for ZSH command line completion. output arguments and exit
+        if args.get_opts:
+            print(" ".join(("--{}".format(opt.replace("_", "-")) for opt in vars(args))))
+            sys.exit(0)
 
         if args.encrypt and not args.init:
             raise MicrodotError("Use --encrypt together with --init")

@@ -566,7 +566,7 @@ def get_channel(name, state, create=False, assume_yes=False):
             return
         try:
             path.mkdir(parents=True)
-            logger.info(f"Created channel: {name}")
+            info("get_channel", "created_channel", name)
         except PermissionError as e:
             logger.error(f"Failed to create channel: {name}")
             raise MicrodotError("Failed to create channel: {name}")

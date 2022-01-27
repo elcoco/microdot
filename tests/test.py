@@ -17,21 +17,27 @@ from core.sync import Sync
 
 logger = logging.getLogger("microdot")
 
-logger.setLevel(logging.DEBUG)
+#logger.setLevel(logging.DEBUG)
 
 class TestBase(unittest.TestCase):
     def setUp(self):
         state.core.dotfiles_dir = Path(tempfile.mkdtemp(prefix=f'dotfiles_'))
         state.channel = get_channel('common', state, create=True, assume_yes=True)
 
-        self.testdir = self.create_dir(Path.home() / '.config/testdir')
+        self.testdir1 = self.create_dir(Path.home() / '.config/testdir1')
+        self.testdir2 = self.create_dir(Path.home() / '.config/testdir2')
 
-        self.testfile = Path.home() / '.config/dotfile.txt'
-        self.testfile.write_text("bevers zijn awesome")
+        self.testfile1 = Path.home() / '.config/dotfile1.txt'
+        self.testfile1.write_text("bevers zijn awesome")
+
+        self.testfile2 = Path.home() / '.config/dotfile2.txt'
+        self.testfile2.write_text("bevers zijn zeer awesome")
 
         self.addCleanup(self.cleanup, state.core.dotfiles_dir)
-        self.addCleanup(self.cleanup, self.testdir)
-        self.addCleanup(self.cleanup, self.testfile)
+        self.addCleanup(self.cleanup, self.testdir1)
+        self.addCleanup(self.cleanup, self.testdir2)
+        self.addCleanup(self.cleanup, self.testfile1)
+        self.addCleanup(self.cleanup, self.testfile2)
 
     def cleanup(self, item):
         """ Cleanup list of files/dirs """
@@ -56,14 +62,14 @@ class TestBase(unittest.TestCase):
 class TestSync(TestBase):
     def test_sync_without_git(self):
         # assume
-        f = self.testdir / 'newfile.txt'
+        f = self.testdir1 / 'newfile.txt'
         decrypted_dir = Path(tempfile.mkdtemp(prefix=f'decrypted_'))
         content = "update"
 
         self.addCleanup(self.cleanup, decrypted_dir)
 
         # action
-        df = state.channel.init(self.testdir, encrypted=True)
+        df = state.channel.init(self.testdir1, encrypted=True)
 
         old_encrypted_path = df.encrypted_path
         f.write_text(content)
@@ -74,200 +80,161 @@ class TestSync(TestBase):
                  use_git=False)
         # TODO finnish this
 
-    def test_update_encrypted_dir(self):
-        # assume
-        f = self.testdir / 'newfile.txt'
-        decrypted_dir = Path(tempfile.mkdtemp(prefix=f'decrypted_'))
-        content = "update"
+    #def test_update_encrypted_dir(self):
+    #    print(">>> Testing sync")
+    #    # assume
+    #    f = self.testdir1 / 'newfile.txt'
+    #    decrypted_dir = Path(tempfile.mkdtemp(prefix=f'decrypted_'))
+    #    content = "update"
 
-        self.addCleanup(self.cleanup, decrypted_dir)
+    #    self.addCleanup(self.cleanup, decrypted_dir)
 
-        # action
-        df = state.channel.init(self.testdir, encrypted=True)
-        f.write_text(content)
-        old_encrypted_path = df.encrypted_path
+    #    # init original version
+    #    df_A = state.channel.init(self.testdir1, encrypted=True)
 
-        df.update()
-        df.decrypt(decrypted_dir)
+    #    f.write_text(content)
+    #    old_encrypted_path = df_A.encrypted_path
 
-        new_file = decrypted_dir / f.name
+    #    s = Sync(state.core.dotfiles_dir,
+    #             state.git.interval,
+    #             state.notifications.error_interval,
+    #             use_git=state.do_use_git)
+    #    s.sync()
 
-        # assert
-        # is file name changed after update
-        self.assertFalse(old_encrypted_path == df.encrypted_path)
+    #    return
+    #    df.decrypt(decrypted_dir)
 
-        # check if updated text in file is present in encrypted file
-        self.assertTrue(new_file.read_text() == content)
+    #    new_file = decrypted_dir / f.name
 
-        # is new file present
-        self.assertTrue(f.is_file())
+    #    # assert
+    #    # is file name changed after update
+    #    self.assertFalse(old_encrypted_path == df.encrypted_path)
 
-        self.assertTrue(df.path.is_dir())
-        self.assertTrue(self.testdir.is_symlink())
-        self.assertTrue(df.encrypted_path.is_file())
-        self.assertTrue(self.testdir.resolve() == df.path)
+    #    # check if updated text in file is present in encrypted file
+    #    self.assertTrue(new_file.read_text() == content)
+
+    #    # is new file present
+    #    self.assertTrue(f.is_file())
+
+    #    self.assertTrue(df.path.is_dir())
+    #    self.assertTrue(self.testdir1.is_symlink())
+    #    self.assertTrue(df.encrypted_path.is_file())
+    #    self.assertTrue(self.testdir1.resolve() == df.path)
 
     def test_local_is_newer(self):
         pass
 
 
 class TestLinkUnlink(TestBase):
-    def test_link_unlink_unencrypted_file(self):
-        # action
-        df = state.channel.init(self.testfile, encrypted=False)
+    def test_link_unlink(self):
+        # action do init
+        df_d1 = state.channel.init(self.testdir1, encrypted=True)
+        df_d2 = state.channel.init(self.testdir2, encrypted=False)
+        df_f1 = state.channel.init(self.testfile1, encrypted=True)
+        df_f2 = state.channel.init(self.testfile2, encrypted=False)
 
-        # assert
-        self.assertTrue(df.path.is_file())
-        self.assertTrue(self.testfile.resolve() == df.path)
-        self.assertTrue(self.testfile.is_symlink())
+        # assert initiated
+        self.assertTrue(df_d1.path.is_dir())
+        self.assertTrue(self.testdir1.is_symlink())
+        self.assertTrue(df_d1.encrypted_path.is_file())
+        self.assertTrue(self.testdir1.resolve() == df_d1.path)
 
-        #action
-        df.unlink()
+        self.assertTrue(df_d2.path.is_dir())
+        self.assertTrue(self.testdir2.is_symlink())
+        self.assertTrue(self.testdir2.resolve() == df_d2.path)
 
-        # linking twice should raise an error
-        with self.assertRaises(MicrodotError):
-            df.unlink()
+        self.assertTrue(df_f1.path.is_file())
+        self.assertTrue(self.testfile1.is_symlink())
+        self.assertTrue(df_f1.encrypted_path.is_file())
+        self.assertTrue(self.testfile1.resolve() == df_f1.path)
 
-        # assert
-        self.assertTrue(df.path.is_file())
-        self.assertFalse(self.testfile.is_symlink())
+        self.assertTrue(df_f2.path.is_file())
+        self.assertTrue(self.testfile2.is_symlink())
+        self.assertTrue(self.testfile2.resolve() == df_f2.path)
 
-        #action
-        df.link()
-
-        # linking twice should raise an error
-        with self.assertRaises(MicrodotError):
-            df.link()
-
-        # assert
-        self.assertTrue(df.path.is_file())
-        self.assertTrue(self.testfile.resolve() == df.path)
-        self.assertTrue(self.testfile.is_symlink())
-
-    def test_link_unlink_unencrypted_dir(self):
-        # action
-        df = state.channel.init(self.testdir, encrypted=False)
-
-        # assert
-        self.assertTrue(df.path.is_dir())
-        self.assertTrue(self.testdir.resolve() == df.path)
-        self.assertTrue(self.testdir.is_symlink())
-
-        #action
-        df.unlink()
+        # do unlink
+        df_d1.unlink()
+        df_d2.unlink()
+        df_f1.unlink()
+        df_f2.unlink()
 
         # linking twice should raise an error
         with self.assertRaises(MicrodotError):
-            df.unlink()
+            df_d1.unlink()
+            df_d2.unlink()
+            df_f1.unlink()
+            df_f2.unlink()
 
-        # assert
-        self.assertTrue(df.path.is_dir())
-        self.assertFalse(self.testdir.is_symlink())
+        # assert unlinked state
+        self.assertFalse(df_d1.path.exists())
+        self.assertFalse(self.testdir1.is_symlink())
+        self.assertTrue(df_d1.encrypted_path.is_file())
 
-        #action
-        df.link()
+        self.assertTrue(df_d2.path.exists())
+        self.assertFalse(self.testdir2.is_symlink())
 
-        # linking twice should raise an error
-        with self.assertRaises(MicrodotError):
-            df.link()
+        self.assertFalse(df_f1.path.exists())
+        self.assertFalse(self.testfile1.is_symlink())
+        self.assertTrue(df_f1.encrypted_path.is_file())
 
-        # assert
-        self.assertTrue(df.path.is_dir())
-        self.assertTrue(self.testdir.resolve() == df.path)
-        self.assertTrue(self.testdir.is_symlink())
+        self.assertTrue(df_f2.path.exists())
+        self.assertFalse(self.testfile2.is_symlink())
 
-    def test_link_unlink_encrypted_file(self):
-        # action
-        df = state.channel.init(self.testfile, encrypted=True)
-
-        # assert
-        self.assertTrue(df.path.is_file())
-        self.assertTrue(self.testfile.is_symlink())
-        self.assertTrue(df.encrypted_path.is_file())
-        self.assertTrue(self.testfile.resolve() == df.path)
-
-        #action
-        df.unlink()
+        # do link
+        df_d1.link()
+        df_d2.link()
+        df_f1.link()
+        df_f2.link()
 
         # linking twice should raise an error
         with self.assertRaises(MicrodotError):
-            df.unlink()
+            df_d1.link()
+            df_d2.link()
+            df_f1.link()
+            df_f2.link()
 
-        # assert
-        self.assertFalse(df.path.exists())
-        self.assertFalse(self.testfile.is_symlink())
-        self.assertTrue(df.encrypted_path.is_file())
+        # assert linked state
+        self.assertTrue(df_d1.path.is_dir())
+        self.assertTrue(self.testdir1.is_symlink())
+        self.assertTrue(df_d1.encrypted_path.is_file())
+        self.assertTrue(self.testdir1.resolve() == df_d1.path)
 
-        #action
-        df.link()
+        self.assertTrue(df_d2.path.is_dir())
+        self.assertTrue(self.testdir2.is_symlink())
+        self.assertTrue(self.testdir2.resolve() == df_d2.path)
 
-        # linking twice should raise an error
-        with self.assertRaises(MicrodotError):
-            df.link()
+        self.assertTrue(df_f1.path.is_file())
+        self.assertTrue(self.testfile1.is_symlink())
+        self.assertTrue(df_f1.encrypted_path.is_file())
+        self.assertTrue(self.testfile1.resolve() == df_f1.path)
 
-        # assert
-        self.assertTrue(df.path.is_file())
-        self.assertTrue(self.testfile.is_symlink())
-        self.assertTrue(df.encrypted_path.is_file())
-        self.assertTrue(self.testfile.resolve() == df.path)
-
-    def test_link_unlink_encrypted_dir(self):
-        # action
-        df = state.channel.init(self.testdir, encrypted=True)
-
-        # assert
-        self.assertTrue(df.path.is_dir())
-        self.assertTrue(self.testdir.is_symlink())
-        self.assertTrue(df.encrypted_path.is_file())
-        self.assertTrue(self.testdir.resolve() == df.path)
-
-        #action
-        df.unlink()
-
-        # linking twice should raise an error
-        with self.assertRaises(MicrodotError):
-            df.unlink()
-
-        # assert
-        self.assertFalse(df.path.exists())
-        self.assertFalse(self.testdir.is_symlink())
-        self.assertTrue(df.encrypted_path.is_file())
-
-        df.link()
-
-        # linking twice should raise an error
-        with self.assertRaises(MicrodotError):
-            df.link()
-
-        # assert
-        self.assertTrue(df.path.is_dir())
-        self.assertTrue(self.testdir.is_symlink())
-        self.assertTrue(df.encrypted_path.is_file())
-        self.assertTrue(self.testdir.resolve() == df.path)
+        self.assertTrue(df_f2.path.is_file())
+        self.assertTrue(self.testfile2.is_symlink())
+        self.assertTrue(self.testfile2.resolve() == df_f2.path)
 
 
 class TestShitInput(TestBase):
     def test_impossible_input(self):
-        df = state.channel.init(self.testfile, encrypted=False)
+        df = state.channel.init(self.testfile1, encrypted=False)
         df.unlink()
 
         # re-init channels/dotfiles
         state.channel = get_channel('common', state, create=True, assume_yes=True)
 
         # try to init an already existing file
-        self.testfile.write_text("second attempt")
+        self.testfile1.write_text("second attempt")
         with self.assertRaises(MicrodotError):
-            state.channel.init(self.testfile, encrypted=False)
+            state.channel.init(self.testfile1, encrypted=False)
 
         # try to init a link
         l = Path.home() / 'xxxtestlink'
-        l.symlink_to(self.testfile)
+        l.symlink_to(self.testfile1)
         self.addCleanup(self.cleanup, l)
 
         with self.assertRaises(MicrodotError):
             state.channel.init(l, encrypted=False)
 
-    def test_on_existing_things(self):
+    def test_non_existing_things(self):
         with self.subTest():
             # check that non existing channel is created when requested
             state.channel = get_channel('non_existing', state, create=True, assume_yes=True)
@@ -297,12 +264,12 @@ class TestShitInput(TestBase):
 class TestEncryptDecrypt(TestBase):
     def test_to_encrypted_to_decrypted_file(self):
         # action
-        df = state.channel.init(self.testfile, encrypted=False)
+        df = state.channel.init(self.testfile1, encrypted=False)
 
         # assert
         self.assertTrue(df.path.is_file())
-        self.assertTrue(self.testfile.resolve() == df.path)
-        self.assertTrue(self.testfile.is_symlink())
+        self.assertTrue(self.testfile1.resolve() == df.path)
+        self.assertTrue(self.testfile1.is_symlink())
 
         # action
         df.to_encrypted(state.encryption.key)
@@ -335,12 +302,12 @@ class TestEncryptDecrypt(TestBase):
 
     def test_to_encrypted_to_decrypted_dir(self):
         # action
-        df = state.channel.init(self.testdir, encrypted=False)
+        df = state.channel.init(self.testdir1, encrypted=False)
 
         # assert
         self.assertTrue(df.path.is_dir())
-        self.assertTrue(self.testdir.resolve() == df.path)
-        self.assertTrue(self.testdir.is_symlink())
+        self.assertTrue(self.testdir1.resolve() == df.path)
+        self.assertTrue(self.testdir1.is_symlink())
 
         # action
         df.to_encrypted(state.encryption.key)
@@ -381,8 +348,8 @@ class TestInit(TestBase):
         self.addCleanup(self.cleanup, decrypted_file)
 
         # action
-        df = state.channel.init(self.testfile, encrypted=True)
-        self.testfile.write_text(content)
+        df = state.channel.init(self.testfile1, encrypted=True)
+        self.testfile1.write_text(content)
         old_encrypted_path = df.encrypted_path
 
         df.update()
@@ -396,10 +363,9 @@ class TestInit(TestBase):
         self.assertTrue(decrypted_file.read_text() == content)
 
         self.assertTrue(df.path.is_file())
-        self.assertTrue(self.testfile.is_symlink())
+        self.assertTrue(self.testfile1.is_symlink())
         self.assertTrue(df.encrypted_path.is_file())
-        self.assertTrue(self.testfile.resolve() == df.path)
-
+        self.assertTrue(self.testfile1.resolve() == df.path)
 
 
 if __name__ == '__main__':

@@ -97,7 +97,7 @@ To run the sync daemon:
     # or as a daemon:
     $ md --watch --use-git
 
-In case of a conflict a conflict file is created in the dotfiles directory.  
+In the case of a conflict, a conflict file is created in the dotfiles directory.  
 When this happens, the conflict can be solved manually by running:
 
     $ md --solve-conflict dotfile.txt#j3DzJZAw#20220121181210#F#CRYPT#CONFLICT

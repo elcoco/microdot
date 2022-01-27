@@ -89,9 +89,9 @@ where:
 
 ## Syncing of encrypted dotfiles
 On first run a config file containing the encryption key is created at: ```$XDG_CONFIG_HOME/microdot/microdot.conf```.  
-When linking an initiated encrypted dotfile, behind the scenes the dotfile is:  
+When linking an initiated encrypted dotfile a lot of things happen behind the scenes:
 
-- decrypted to the "decrypted" directory in the root of the dotfiles directory.
+- dotfile is decrypted to the "decrypted" directory in the root of the dotfiles directory.
 - a link is created from the original dotfile location to the decrypted location.
 - a .gitignore file is created with the "decrypted" directory blacklisted to prevent microdot from syncing your decrypted files to git.
 

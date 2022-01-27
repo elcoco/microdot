@@ -44,6 +44,19 @@ Same, but use encryption this time:
 
     $ md --encrypt --init ~/.config/dotfile.txt
 
+This would create a directory structure similar to this:
+
+    ~/.dotfiles
+    ├── common
+    │   └── .config
+    │       └── dotfile.txt#vWHbAUqC#20220126212324#F#CRYPT
+    ├── decrypted
+    │   └── common
+    │       └── .config
+    │           └── dotfile.txt
+    ├── .git
+    └── .gitignore
+
 Link and unlink an initialized dotfile:
 
     # when initialized you only have to specify the path relative to the home directory

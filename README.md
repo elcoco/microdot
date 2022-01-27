@@ -36,7 +36,7 @@ Gotta manage them dotfiles
       -f, --force                             force overwrite files/dirs
       -D, --debug                             enable debugging
 
-Start using (initiate) a dotfile:
+### Start using (initiate) a dotfile:
 
     $ md --init ~/.config/dotfile.txt
 
@@ -62,14 +62,14 @@ where:
 - the unencrypted file is at: ```~/.dotfiles/decrypted/common/.config/dotfile.txt```
 
 
-Link and unlink an initialized dotfile:
+### Link and unlink an initialized dotfile:
 
     # when initialized you only have to specify the path relative to the home directory
     # eg:
     $ md --link .config/dotfile.txt
     $ md --unlink .config/dotfile.txt
 
-Link and unlink all dotfiles in a channel:
+### Link and unlink all dotfiles in a channel:
 
     # not specifying a channel defaults to the "common" channel
     $ md --link-all
@@ -79,12 +79,12 @@ Link and unlink all dotfiles in a channel:
     $ md --link-all --channel my_hostname
     $ md --unlink-all --channel my_hostname
 
-Encrypt/decrypt an already initialized dotfile
+### Encrypt/decrypt an already initialized dotfile
 
     $ md --to-encrypted  .config/dotfile.txt
     $ md --to-decrypted  .config/dotfile.txt
 
-List all files managed by microdot
+### List all files managed by microdot
 
     $ md
 

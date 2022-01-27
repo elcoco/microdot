@@ -72,7 +72,7 @@ List all files managed by microdot
 
 ## Syncing of encrypted dotfiles
 On first run a config file containing the encryption key is created at: ```$XDG_CONFIG_HOME/microdot/microdot.conf```.  
-When linking an initiated dotfile, behind the scenes the dotfile is:  
+When linking an initiated encrypted dotfile, behind the scenes the dotfile is:  
 
 - decrypted to the "decrypted" directory in the root of the dotfiles directory.
 - a link is created from the original dotfile location to the decrypted location.

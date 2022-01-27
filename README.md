@@ -130,7 +130,6 @@ In the case of a conflict, a conflict file is created in the same directory as w
 
 Microdot can help to solve the conflict:
 
-    $ md --solve-conflict dotfile.txt#j3DzJZAw#20220121181210#F#CRYPT#CONFLICT
-
+    $ md --solve-conflict dotfile.txt#dXQ3o9K1#20220121181309#F#CRYPT#CONFLICT
 ## Sync algorithm
 TODO: describe the sync algorithm

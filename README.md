@@ -65,7 +65,6 @@ where:
 ### Link and unlink an initialized dotfile:
 
     # when initialized you only have to specify the path relative to the home directory
-    # eg:
     $ md --link .config/dotfile.txt
     $ md --unlink .config/dotfile.txt
 

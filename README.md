@@ -105,7 +105,8 @@ When a change is detected in the decrypted version, the daemon will re-encrypt t
     $ md --watch
 
 Microdot can additionally sync with an external git repo.  
-Git can only solve conflicts for text files. Because encrypted files are binary, git is not able to solve these conflicts.  
+Git can only solve conflicts for text files.  
+Because encrypted files are binary, git is not able to solve these conflicts.  
 To fix this problem Microdot adds a sync layer on top of git to identify new versions and choose which version is the newest.  
 To run the sync daemon:
 

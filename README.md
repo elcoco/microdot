@@ -114,8 +114,8 @@ To fix this problem Microdot adds a sync layer on top of git to identify new ver
     # or as a daemon:
     $ md --watch --use-git
 
-In the case of a conflict, a conflict file is created in the dotfiles directory.  
-When this happens, the conflict can be solved manually by running:
+In the case of a conflict, a conflict file is created in the same directory as where the encrypted file is located.  
+Microdot can help to solve the conflict:
 
     $ md --solve-conflict dotfile.txt#j3DzJZAw#20220121181210#F#CRYPT#CONFLICT
 

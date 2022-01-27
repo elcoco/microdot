@@ -115,6 +115,19 @@ To fix this problem Microdot adds a sync layer on top of git to identify new ver
     $ md --watch --use-git
 
 In the case of a conflict, a conflict file is created in the same directory as where the encrypted file is located.  
+
+    ~/.dotfiles
+    ├── common
+    │   └── .config
+    │       ├── dotfile.txt#dXQ3o9K1#20220121181309#F#CRYPT#CONFLICT
+    │       └── dotfile.txt#vWHbAUqC#20220126212324#F#CRYPT
+    ├── decrypted
+    │   └── common
+    │       └── .config
+    │           └── dotfile.txt
+    ├── .git
+    └── .gitignore
+
 Microdot can help to solve the conflict:
 
     $ md --solve-conflict dotfile.txt#j3DzJZAw#20220121181210#F#CRYPT#CONFLICT

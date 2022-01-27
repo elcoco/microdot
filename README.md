@@ -95,8 +95,8 @@ When linking an initiated encrypted dotfile a lot of things happen behind the sc
 - a link is created from the original dotfile location to the decrypted location.
 - a .gitignore file is created with the "decrypted" directory blacklisted to prevent microdot from syncing your decrypted files to git.
 
-Microdot contains a daemon to keep the decrypted and encrypted versions of the dotfile in sync.
-When a change is made in the decrypted version the daemon will re-encrypt the file.  
+Microdot contains a daemon to keep the decrypted and encrypted versions of the dotfile in sync.  
+When a change is detected in the decrypted version, the daemon will re-encrypt the file.  
 
     # do a sync when changes are detected
     $ md --sync

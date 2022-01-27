@@ -12,9 +12,9 @@
 
 ## Usage
 
-usage: microdot [OPTIONS]
+    usage: microdot [OPTIONS]
 
-Gotta manage them dotfiles
+    Gotta manage them dotfiles
 
     options:
       -h, --help                              show this help message and exit

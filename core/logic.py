@@ -99,7 +99,7 @@ class SyncAlgorithm(LastSyncIndex):
 
     def is_in_sync(self, a, b):
         if self.in_list(a) and not self.exists(b):
-            info("sync", "in_sync", a.name)
+            debug("sync", "in_sync", a.name)
             return True
 
 #    def b_is_newer(self, a, b):

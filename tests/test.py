@@ -234,6 +234,24 @@ class TestShitInput(TestBase):
         with self.assertRaises(MicrodotError):
             state.channel.init(l, encrypted=False)
 
+    def test_init_sanity_check(self):
+        p = Path('/tmp/testfile.txt')
+        p.write_text('test')
+        self.addCleanup(self.cleanup, p)
+
+        # path not in homedir
+        with self.assertRaises(MicrodotError):
+            df = state.channel.init(p, encrypted=False)
+
+        p2 = state.core.dotfiles_dir / 'xxxxxx.txt'
+        p2.write_text('test')
+        self.addCleanup(self.cleanup, p2)
+
+        # path in dotfiles dir
+        with self.assertRaises(MicrodotError):
+            df = state.channel.init(p2, encrypted=False)
+
+
     def test_non_existing_things(self):
         with self.subTest():
             # check that non existing channel is created when requested

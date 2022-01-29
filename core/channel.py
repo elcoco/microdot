@@ -509,10 +509,21 @@ class Channel():
             info("unlink_all", "unlinked", dotfile.name)
 
     def init(self, path, encrypted=False):
-        """ Start using a dotfile.
+        """ Start using a dotfile
             Copy dotfile to channel directory and create symlink. """
 
-        src = self._path / path.absolute().relative_to(Path.home())
+        # do some sanity checks first
+        try:
+            src = self._path / path.absolute().relative_to(Path.home())
+        except ValueError:
+            raise MicrodotError(f"Path not relative to homedir: {path}")
+
+        try:
+            res = path.relative_to(self._path.parent)
+        except ValueError:
+            res = None
+        if res != None:
+            raise MicrodotError(f"Path should not be inside dotfiles dir: {path}")
 
         if encrypted:
             if path.is_file():

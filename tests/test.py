@@ -249,7 +249,7 @@ class TestShitInput(TestBase):
         p2.write_text('test')
         self.addCleanup(self.cleanup, p2)
 
-        # path in dotfiles dir
+        # path in an already managed dotfiles dir
         with self.assertRaises(MicrodotError):
             df = state.channel.init(p2, encrypted=False)
 

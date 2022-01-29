@@ -569,7 +569,7 @@ class Channel():
         try:
             src = self._path / path.absolute().relative_to(Path.home())
         except ValueError:
-            raise MicrodotError(f"Path not relative to homedir: {path}")
+            raise MicrodotError(f"Path is not relative to homedir: {path}")
 
         try:
             res = path.relative_to(self._path.parent)
@@ -584,12 +584,12 @@ class Channel():
             elif path.is_dir():
                 dotfile = DotDirEncrypted(src, self._path, self._key)
             else:
-                raise MicrodotError(f"Don't know what to do with this path: {path}")
+                raise MicrodotError(f"Path is not a file or directory: {path}")
         else:
             if path.is_file() or path.is_dir():
                 dotfile = DotFileBaseClass(src, self._path)
             else:
-                raise MicrodotError(f"Don't know what to do with this path: {path}")
+                raise MicrodotError(f"Path is not a file or directory: {path}")
 
         # raise error if dotfile already exists
         try:
@@ -598,7 +598,7 @@ class Channel():
             df = False
 
         if df:
-            raise MicrodotError(f"Dotfile already exists: {dotfile.name}")
+            raise MicrodotError(f"Dotfile already managed: {dotfile.name}")
 
         if not (path.is_file() or path.is_dir()):
             raise MicrodotError(f"Source path is not a file or directory: {path}")

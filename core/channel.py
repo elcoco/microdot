@@ -557,32 +557,33 @@ class Channel():
             dotfile.unlink()
             info("unlink_all", "unlinked", dotfile.name)
 
-    def search_parents(self, path, filename=SCAN_DIR_FILE):
-        """ Itter parents until filename is found or we are at $HOME """
-        while path != Path.home():
+    def search_parents(self, path: Path, search_name: Path):
+        """ Itter parents until search_name is found or we are at $HOME """
+        while path != Path('/'):
             path = path.parent
-            if (path/filename).is_file():
+            if (path/search_name).exists():
                 return path
 
-    def init(self, path, encrypted=False):
+    def dotfile_exists(self, name: str) -> bool:
+        try:
+            return self.get_dotfile(name)
+        except MicrodotError:
+            pass
+
+    def init(self, path: Path, encrypted: bool=False) -> DotFileBaseClass:
         """ Start using a dotfile
             Copy dotfile to channel directory and create symlink. """
-
-        # search for a .microdot file in parents
-        p = self._path / path.absolute().relative_to(Path.home())
-        if (ret := self.search_parents(p.parent)):
-            raise MicrodotError(f"A parent of this path is already managed by microdot: {ret}")
 
         try:
             src = self._path / path.absolute().relative_to(Path.home())
         except ValueError:
             raise MicrodotError(f"Path is not relative to homedir: {path}")
 
-        try:
-            res = path.relative_to(self._path.parent)
-        except ValueError:
-            res = None
-        if res != None:
+        # search for a .microdot file in parents, start at p.parent to allow for a .microdot file to be in first parent
+        if (ret := self.search_parents(src.parent, SCAN_DIR_FILE)):
+            raise MicrodotError(f"A parent of this path is already managed by microdot: {ret}")
+
+        if self.is_child_of(path, [self._path.parent]):
             raise MicrodotError(f"Path should not be inside dotfiles dir: {path}")
 
         if encrypted:
@@ -599,12 +600,7 @@ class Channel():
                 raise MicrodotError(f"Path is not a file or directory: {path}")
 
         # raise error if dotfile already exists
-        try:
-            df = self.get_dotfile(dotfile.name)
-        except MicrodotError:
-            df = False
-
-        if df:
+        if self.dotfile_exists(dotfile.name):
             raise MicrodotError(f"Dotfile already managed: {dotfile.name}")
 
         if not (path.is_file() or path.is_dir()):
@@ -616,13 +612,7 @@ class Channel():
         dotfile.init(path)
 
         # place the file that indicates a dotfiles search dir
-        #if dotfile.is_dir():
-        #    ind_file = dotfile.path.parent / SCAN_DIR_FILE
-        #else:
-        #    ind_file = dotfile.path.parent.parent / SCAN_DIR_FILE
-
         ind_file = dotfile.path.parent / SCAN_DIR_FILE
-
         if not ind_file.is_file():
             ind_file.touch()
 

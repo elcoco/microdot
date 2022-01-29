@@ -253,7 +253,6 @@ class TestShitInput(TestBase):
         with self.assertRaises(MicrodotError):
             df = state.channel.init(p2, encrypted=False)
 
-
     def test_non_existing_things(self):
         with self.subTest():
             # check that non existing channel is created when requested

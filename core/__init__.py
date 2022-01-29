@@ -128,3 +128,6 @@ SCAN_CHANNEL_BLACKLIST = [DECRYPTED_DIR]
 
 GIT_COMMIT_MSG = 'update'
 
+# indicate a scan dir
+SCAN_DIR_FILE = '.microdot'
+

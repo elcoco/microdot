@@ -131,5 +131,22 @@ In the case of a conflict, a conflict file is created in the same directory as w
 Microdot can help to solve the conflict:
 
     $ md --solve-conflict .config/dotfile.txt#dXQ3o9K1#20220121181309#F#CRYPT#CONFLICT
+
+## Note on directory structure
+Microdot needs to know which directory is a dotfiles dir and which is a subdirectory to look for other dotfiles/dirs.
+
+    # could be interpreted as a dotdir called .config or two dotdirs .config/dotdir1 and .config/dotdir2
+    .config/dotdir1
+    .config/dotdir2
+
+I don't want to keep lists of dotfiles/dirs because that would only work when dotfiles are always managed with microdot.  
+In reality users want to be able to manually delete and change dirs.
+To solve this issue microdot places an indicator file (.microdot) in the parent of the dotfiles dir.
+
+    .config/.microdot
+
+This would indicate that the .config directory is a directory that contains other dotfiles/dirs.  
+
+
 ## Sync algorithm
 TODO: describe the sync algorithm

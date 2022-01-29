@@ -19,6 +19,8 @@ logger = logging.getLogger("microdot")
 
 #logger.setLevel(logging.DEBUG)
 
+# TODO try to init a file in a managed dotfiles dir
+
 class TestBase(unittest.TestCase):
     def setUp(self):
         state.core.dotfiles_dir = Path(tempfile.mkdtemp(prefix=f'dotfiles_'))

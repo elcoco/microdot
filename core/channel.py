@@ -13,6 +13,7 @@ from core.exceptions import MicrodotError
 from core import state
 from core import CONFLICT_EXT, ENCRYPTED_DIR_EXT, ENCRYPTED_FILE_EXT, ENCRYPTED_DIR_FORMAT, ENCRYPTED_FILE_FORMAT
 from core import CONFLICT_FILE_EXT, CONFLICT_DIR_EXT, TIMESTAMP_FORMAT, DECRYPTED_DIR, SCAN_CHANNEL_BLACKLIST, SCAN_DIR_BLACKLIST
+from core import SCAN_DIR_FILE
 from core.utils import confirm, colorize, debug, info, get_hash, get_tar
 from core.utils import Columnize
 
@@ -346,7 +347,7 @@ class Channel():
         self._key = state.encryption.key
         self._path = path
         self.name = path.name
-        self.dotfiles = self.search_dotfiles(self._path, state.core.check_dirs)
+        self.dotfiles = self.search_dotfiles(self._path)
         self.dotfiles = self.filter_decrypted(self.dotfiles)
         self._colors = state.colors
         self.conflicts = sorted(self.search_conflicts(self._path, state.core.check_dirs), key=lambda x: x.timestamp, reverse=True)
@@ -369,21 +370,59 @@ class Channel():
                 ret.append(df)
         return ret
 
-    def search_dotfiles(self, item, search_dirs):
-        """ recursive find of files and dirs in channel when file/dir is in search_dirs """
-        items = [self.create_obj(f) for f in item.iterdir() if f.is_file() and not f.name.endswith(CONFLICT_EXT)]
+    def search_scan_dirs(self, path):
+        """ Recursive find dirs containing the SCAN_DIR_FILE """
+        dirs = []
+        if (path / SCAN_DIR_FILE).is_file():
+            return [path]
 
-        for d in [d for d in item.iterdir() if d.is_dir()]:
-            if d.name in SCAN_DIR_BLACKLIST:
-                continue
-            if d.name in search_dirs:
-                items += self.search_dotfiles(d, search_dirs)
-            else:
-                items.append(self.create_obj(d))
+        for d in [p for p in path.iterdir() if p.is_dir()]:
+            dirs += self.search_scan_dirs(d)
+        return dirs
+
+    def is_relative_to(self, parent, paths):
+        """ Check if there parent is relative to one of the paths """
+        for d in paths:
+            try:
+                return d.relative_to(parent)
+            except ValueError:
+                pass
+
+    def search_dotfiles(self, directory):
+        """ Find file and directories in channel
+
+            All directories that need to be searched have a special file in them.
+            eg:
+
+              ~/.config/dotfile.txt
+              ~/.config/.microdot
+
+            Without the special .microdot file, this can be interpreted as:
+                1) a dotdir: ~/.config with the file dotfile.txt in it
+                2) a dotfile: dotfile.txt inside the .config subdirectory: ~/.config
+
+            By placing a special file in the .config directory microdot knows that every file/dir in this directory should be treated as a dotfile/dir
+
+            The root of the channel is the exeption to this rule.
+            All files/dirs in the root are treated as dotfiles/dirs
+        """
+        # if directory is a dotfiles scan dir (see readme), interpret all dir contents as dotfiles/dirs
+        items = []
+
+        # search root of channel
+        for p in directory.iterdir():
+            if not p.name.endswith(CONFLICT_EXT) and not p.name == SCAN_DIR_FILE and not self.is_relative_to(p, self.search_scan_dirs(directory)):
+                items.append(self.create_obj(p))
+
+        # search all search paths inside root of channel
+        for path in self.search_scan_dirs(directory):
+            items += [self.create_obj(p) for p in path.iterdir() if not p.name.endswith(CONFLICT_EXT) and not p.name == SCAN_DIR_FILE]
+
         return sorted(items, key=lambda item: item.name)
 
     def search_conflicts(self, item, search_dirs):
         """ recursive find of files and dirs in channel when file/dir is in search_dirs """
+        # TODO do same thing here as in search_dotfiles()
         items = [self.create_obj(f) for f in item.iterdir() if f.is_file() and f.name.endswith(CONFLICT_EXT)]
 
         for d in [d for d in item.iterdir() if d.is_dir()]:
@@ -513,6 +552,9 @@ class Channel():
             Copy dotfile to channel directory and create symlink. """
 
         # do some sanity checks first
+
+        # TODO check if a parent of path is already managed by microdot
+
         try:
             src = self._path / path.absolute().relative_to(Path.home())
         except ValueError:
@@ -554,6 +596,12 @@ class Channel():
             raise MicrodotError(f"Source path is a symlink: {path}")
 
         dotfile.init(path)
+
+        # place the file that indicates a dotfiles search dir
+        ind_file = dotfile.path.parent / SCAN_DIR_FILE
+        if not ind_file.is_file():
+            ind_file.touch()
+
         return dotfile
 
 

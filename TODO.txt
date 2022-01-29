@@ -38,3 +38,4 @@
 # DONE add encrypt option to --link switch so we can encrypt an already initialized file
 #      ask the user to remove file from git cache
 # DONE add unencrypt option
+# TODO search dirs should be recorded in a file inside dotfiles_dir

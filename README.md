@@ -1,5 +1,7 @@
 # Microdot :: a simple dotfiles manager
 
+Currently under development and will probably break every now and then...
+
 ## Features
 - **Channels:** Dotfiles are organized in channels. You can keep channels with sets of dotfiles for separate computers. Or keep common sets of dotfiles that are shared between computers.  
 - **Encryption:** Dotfiles can be encrypted individually. An optional daemon can watch the unencrypted dotfile for changes and automatically keep the encrypted file up to date.

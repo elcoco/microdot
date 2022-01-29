@@ -557,14 +557,21 @@ class Channel():
             dotfile.unlink()
             info("unlink_all", "unlinked", dotfile.name)
 
+    def search_parents(self, path, filename=SCAN_DIR_FILE):
+        """ Itter parents until filename is found or we are at $HOME """
+        while path != Path.home():
+            path = path.parent
+            if (path/filename).is_file():
+                return path
+
     def init(self, path, encrypted=False):
         """ Start using a dotfile
             Copy dotfile to channel directory and create symlink. """
 
-        # do some sanity checks first
-        parents = [d.link_path for d in self.dotfiles if d.is_dir()]
-        if (p := self.is_child_of(path, parents)):
-            raise MicrodotError(f"A parent of this path is already managed by microdot: {p}")
+        # search for a .microdot file in parents
+        p = self._path / path.absolute().relative_to(Path.home())
+        if (ret := self.search_parents(p.parent)):
+            raise MicrodotError(f"A parent of this path is already managed by microdot: {ret}")
 
         try:
             src = self._path / path.absolute().relative_to(Path.home())
@@ -609,7 +616,13 @@ class Channel():
         dotfile.init(path)
 
         # place the file that indicates a dotfiles search dir
+        #if dotfile.is_dir():
+        #    ind_file = dotfile.path.parent / SCAN_DIR_FILE
+        #else:
+        #    ind_file = dotfile.path.parent.parent / SCAN_DIR_FILE
+
         ind_file = dotfile.path.parent / SCAN_DIR_FILE
+
         if not ind_file.is_file():
             ind_file.touch()
 

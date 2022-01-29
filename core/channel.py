@@ -73,14 +73,14 @@ class DotFileBaseClass():
             link.unlink()
 
         if link.exists() and force:
-            logger.info(f"Link path exists, using --force to overwrite: {link}")
+            logger.info(f"Path exists, using --force to overwrite: {link}")
             self.remove_path(link)
 
         if link.is_symlink():
             raise MicrodotError(f"Dotfile already linked: {link}")
 
         if link.exists():
-            raise MicrodotError(f"Link exists: {link}")
+            raise MicrodotError(f"Path exists: {link}")
 
         link.symlink_to(target)
         debug(self.name, 'linked', f'{link} -> {target.name}')
@@ -380,15 +380,25 @@ class Channel():
             dirs += self.search_scan_dirs(d)
         return dirs
 
-    def is_relative_to(self, parent, paths):
+    def is_parent_of(self, parent: Path, paths: list) -> bool:
         """ Check if there parent is relative to one of the paths """
         for d in paths:
             try:
-                return d.relative_to(parent)
+                d.relative_to(parent)
+                return d
             except ValueError:
                 pass
 
-    def search_dotfiles(self, directory):
+    def is_child_of(self, child: Path, parents: list) -> bool:
+        """ Check if one of the paths is a parent of child path """
+        for d in parents:
+            try:
+                child.relative_to(d)
+                return d
+            except ValueError:
+                pass
+
+    def search_dotfiles(self, directory: Path) -> list:
         """ Find file and directories in channel
 
             All directories that need to be searched have a special file in them.
@@ -409,9 +419,9 @@ class Channel():
         # if directory is a dotfiles scan dir (see readme), interpret all dir contents as dotfiles/dirs
         items = []
 
-        # search root of channel
+        # search root of channel, filter out scan dirs
         for p in directory.iterdir():
-            if not p.name.endswith(CONFLICT_EXT) and not p.name == SCAN_DIR_FILE and not self.is_relative_to(p, self.search_scan_dirs(directory)):
+            if not p.name.endswith(CONFLICT_EXT) and not p.name == SCAN_DIR_FILE and not self.is_parent_of(p, self.search_scan_dirs(directory)):
                 items.append(self.create_obj(p))
 
         # search all search paths inside root of channel
@@ -432,7 +442,7 @@ class Channel():
                 items += self.search_conflicts(d, search_dirs)
         return sorted(items, key=lambda item: item.name)
 
-    def parse_conflict(self, name):
+    def parse_conflict(self, name: str) -> str:
         """ Use regex to parse conflict file name, return colored string """
         try:
             r = re.search(r"(.+)#(.+)#([0-9]+)#([A-Z])#([A-Z]+)#([A-Z]+)", name)
@@ -552,8 +562,9 @@ class Channel():
             Copy dotfile to channel directory and create symlink. """
 
         # do some sanity checks first
-
-        # TODO check if a parent of path is already managed by microdot
+        parents = [d.link_path for d in self.dotfiles if d.is_dir()]
+        if (p := self.is_child_of(path, parents)):
+            raise MicrodotError(f"A parent of this path is already managed by microdot: {p}")
 
         try:
             src = self._path / path.absolute().relative_to(Path.home())

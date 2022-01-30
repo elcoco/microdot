@@ -38,8 +38,6 @@
 # DONE add encrypt option to --link switch so we can encrypt an already initialized file
 #      ask the user to remove file from git cache
 # DONE add unencrypt option
-# TODO search dirs should be recorded in a file inside dotfiles_dir
-# TODO instead of --link-all, use --link *
 
 # TODO if there are two encrypted paths with same filename, sync will alway say the first file is new
        ├─ [EF] testfile.txt                     CyW2RHgK 2022-01-22 22:25:01

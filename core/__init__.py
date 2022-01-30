@@ -66,7 +66,6 @@ logger.setLevel(logging.INFO)
 state = Config(path=Path.home() / '.config/microdot/microdot.conf')
 state.core                   = {}
 state.core.dotfiles_dir      = str(Path.home() / '.dotfiles')
-state.core.check_dirs        = ['.config']
 state.core.channel_blacklist = ['.git']
 state.core.default_channel   = 'common'
 state.encryption             = {}

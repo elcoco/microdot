@@ -174,7 +174,7 @@ class App():
 
         elif state.do_solve:
             conflict_path = Path(state.do_solve)
-            orig_path = conflict_path.name.split('#')[0]
+            orig_path = conflict_path.parent/ conflict_path.name.split('#')[0]
 
             try:
                 orig_df = state.channel.get_encrypted_dotfile(orig_path)

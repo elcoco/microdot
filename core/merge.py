@@ -273,8 +273,8 @@ def handle_file_conflict(df_current, df_conflict):
 
 def handle_dir_conflict(df_current, df_conflict):
     # decrypt current and conflict dirs to tmp dirs
-    tmp_current  = Path(tempfile.mkdtemp(prefix=f'current_{df_current.name}_'))
-    tmp_conflict = Path(tempfile.mkdtemp(prefix=f'conflict_{df_current.name}_'))
+    tmp_current  = Path(tempfile.mkdtemp(prefix=f'current_{df_current.name.name}_'))
+    tmp_conflict = Path(tempfile.mkdtemp(prefix=f'conflict_{df_current.name.name}_'))
     df_current.decrypt(dest=tmp_current / df_current.name)
     df_conflict.decrypt(dest=tmp_conflict / df_current.name)
 

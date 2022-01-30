@@ -100,7 +100,6 @@ class DotFileBaseClass():
     def init(self, src):
         """ Move source path to dotfile location """
         shutil.move(src, self.path)
-        #src.replace(self.path)
         debug(self.name, 'moved', f'{src} -> {self.path}')
         self.link()
 
@@ -158,6 +157,7 @@ class DotFileEncryptedBaseClass(DotFileBaseClass):
                 self.encrypted_path = path
                 self.name = self.path.relative_to(channel.parent / DECRYPTED_DIR / channel.name)
                 self.timestamp = datetime.datetime.strptime(ts, TIMESTAMP_FORMAT)
+                self.conflict_name = path.relative_to(channel)
             except ValueError:
                 try: # parse path that will be used by init to initiate new encrypted dotfile: ~/.dotfiles/common/testfile.txt
                      # allow incomplete data. missing data will be added later
@@ -484,14 +484,12 @@ class Channel():
         for item in self.conflicts:
 
             # color format conflict string
-            name = self.parse_conflict(item.encrypted_path.name)
+            name = item.conflict_name.parent / self.parse_conflict(item.conflict_name.name)
 
             if item.is_dir():
-                cols.add([colorize(f"[CD]", self._colors.conflict),
-                          name])
+                cols.add([colorize(f"[CD]", self._colors.conflict), name])
             else:
-                cols.add([colorize(f"[CF]", self._colors.conflict),
-                          name])
+                cols.add([colorize(f"[CF]", self._colors.conflict), name])
         cols.show()
 
     def get_dotfile(self, name):
@@ -514,7 +512,7 @@ class Channel():
     def get_conflict(self, name):
         """ Get DotFile object by conflict file name """
         for df in self.conflicts:
-            if str(df.encrypted_path.name) == str(name):
+            if str(df.conflict_name) == str(name):
                 return df
         raise MicrodotError(f"Conflict not found: {name}")
 
@@ -555,7 +553,6 @@ class Channel():
         paths = self.scan_dir(self._path)
 
         while path != Path.home():
-            print(path)
             p = self._path / path.relative_to(Path.home())
             if p in paths:
                 return p

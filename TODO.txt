@@ -42,6 +42,6 @@
 # DONE if there are two encrypted paths with same filename, sync will alway say the first file is new
        ├─ [EF] testfile.txt                     CyW2RHgK 2022-01-22 22:25:01
        └─ [EF] tmp/misc/testdir/testfile.txt    GaJbGojG 2022-01-30 17:16:26
-# TODO conflict files should have a path
+# DONE conflict files should have a path
 
-# TODO make dotfile classes a bit more logical
+# DONE make dotfile classes a bit more logical

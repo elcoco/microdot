@@ -247,8 +247,8 @@ def handle_file_conflict(df_current, df_conflict):
     """ Go through the full process of handling a file conflict """
 
     # decrypt current and conflict file to tmp files
-    tmp_current  = Path(tempfile.mktemp(prefix=f'current_{df_current.name}_'))
-    tmp_conflict = Path(tempfile.mktemp(prefix=f'conflict_{df_current.name}_'))
+    tmp_current  = Path(tempfile.mktemp(prefix=f'current_{df_current.name.name}_'))
+    tmp_conflict = Path(tempfile.mktemp(prefix=f'conflict_{df_current.name.name}_'))
     df_current.decrypt(dest=tmp_current)
     df_conflict.decrypt(dest=tmp_conflict)
 

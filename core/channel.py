@@ -399,7 +399,7 @@ class Channel():
                 pass
 
     def search_dotfiles(self, directory: Path) -> list:
-        """ Find file and directories in channel
+        """ Find dotfiles/dirs in channel
 
             All directories that need to be searched have a special file in them.
             eg:
@@ -407,13 +407,13 @@ class Channel():
               ~/.config/dotfile.txt
               ~/.config/.microdot
 
-            Without the special .microdot file, this can be interpreted as:
+            Without the special .microdot file, this dir can be interpreted as:
                 1) a dotdir: ~/.config with the file dotfile.txt in it
                 2) a dotfile: dotfile.txt inside the .config subdirectory: ~/.config
 
             By placing a special file in the .config directory microdot knows that every file/dir in this directory should be treated as a dotfile/dir
 
-            The root of the channel is the exeption to this rule.
+            The root of the channel is the exception to this rule.
             All files/dirs in the root are treated as dotfiles/dirs
         """
         # if directory is a dotfiles scan dir (see readme), interpret all dir contents as dotfiles/dirs

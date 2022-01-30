@@ -1,5 +1,7 @@
 from pathlib import Path
 import logging
+import shutil
+
 from core.utils import info, debug
 from core import state
 from core.channel import DotFileEncryptedBaseClass

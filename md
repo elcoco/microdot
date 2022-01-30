@@ -179,7 +179,7 @@ class App():
             try:
                 orig_df = state.channel.get_encrypted_dotfile(orig_path)
 
-                if not (conflict := orig_df.has_conflict(conflict_path)):
+                if not (conflict := orig_df.get_conflict(conflict_path)):
                     die("Conflict not found")
 
                 #conflict_df = state.channel.get_conflict(conflict_path)

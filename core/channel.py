@@ -24,6 +24,12 @@ import cryptography
 logger = logging.getLogger("microdot")
 
 
+@dataclass
+class Conflict():
+    path: Path
+    name: str
+
+
 class DotFileBaseClass():
     def __init__(self, path, channel):
         """ path is where dotfile source is: /home/eco/.dotfiles/common/testfile.txt """
@@ -171,8 +177,6 @@ class DotFileEncryptedBaseClass(DotFileBaseClass):
         self.is_encrypted = True
         self._key = key
 
-        self.conflicts = self.search_conflicts()
-
         # ensure decrypted dir exists
         if not self.path.parent.is_dir():
             debug(self.name, 'mkdir', self.path.parent)
@@ -183,7 +187,7 @@ class DotFileEncryptedBaseClass(DotFileBaseClass):
             debug(self.name, 'mkdir', self.encrypted_path.parent)
             self.encrypted_path.parent.mkdir(parents=True)
 
-    def search_conflicts(self):
+    def get_conflicts(self):
         """ Find conflicts that belong to this dotfile/dir """
         conflicts = []
         for p in self.encrypted_path.parent.iterdir():
@@ -195,11 +199,10 @@ class DotFileEncryptedBaseClass(DotFileBaseClass):
                     conflicts.append(Conflict(p, p.relative_to(self.channel)))
             except ValueError:
                 pass
-
         return conflicts
 
-    def has_conflict(self, path):
-        for c in self.conflicts:
+    def get_conflict(self, path):
+        for c in self.get_conflicts():
             if c.name == path:
                 return c
 
@@ -329,12 +332,6 @@ class DotFileEncryptedBaseClass(DotFileBaseClass):
             df.link()
 
 
-@dataclass
-class Conflict():
-    path: Path
-    name: str
-
-
 class DotFileEncrypted(DotFileEncryptedBaseClass):
     def __init__(self, *args):
         super().__init__(*args)
@@ -395,9 +392,8 @@ class Channel():
             return DotDirEncrypted(path, self._path, self._key)
         elif path.name.endswith(ENCRYPTED_FILE_EXT):
             return DotFileEncrypted(path, self._path, self._key)
-        elif path.name.endswith(CONFLICT_FILE_EXT) or path.name.endswith(CONFLICT_DIR_EXT):
-            return DotFileConflict(path, self._path, self._key)
-        return DotFileBaseClass(path, self._path)
+        else:
+            return DotFileBaseClass(path, self._path)
 
     def filter_decrypted(self, dotfiles):
         """ Check if there are decrypted paths in the list """
@@ -500,7 +496,7 @@ class Channel():
 
         cols = Columnize(prefix='  ', prefix_color='red')
         for item in encrypted:
-            for conflict in item.conflicts:
+            for conflict in item.get_conflicts():
 
                 # color format conflict string
                 name = conflict.name.parent / self.parse_conflict(conflict.name.name)
@@ -513,7 +509,6 @@ class Channel():
 
     def get_dotfile(self, name):
         """ Get dotfile object by filename """
-        # TODO should raise exception on not found?
         for df in self.dotfiles:
             if str(df.name) == str(name):
                 return df

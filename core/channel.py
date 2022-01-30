@@ -537,17 +537,12 @@ class Channel():
     def unlink_all(self):
         """ Unlink all dotfiles in channel """
         if not (dotfiles := [df for df in self.dotfiles if df.check_symlink()]):
-            info("unlink_all", "unlink_all", "Nothing to link")
+            info("unlink_all", "unlink_all", "Nothing to unlink")
             return
 
         for dotfile in dotfiles:
             dotfile.unlink()
             info("unlink_all", "unlinked", dotfile.name)
-
-        while path != Path('/'):
-            path = path.parent
-            if (path/search_name).exists():
-                return path
 
     def dotfile_exists(self, name: str) -> bool:
         try:

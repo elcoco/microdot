@@ -66,6 +66,9 @@ class DotFileBaseClass():
 
         link = self.link_path
 
+        if not link.parent.is_dir():
+            link.mkdir(parents=True)
+
         if not target:
             target = self.path
 

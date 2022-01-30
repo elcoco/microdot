@@ -101,6 +101,10 @@ class DotFileBaseClass():
         debug(self.name, 'moved', f'{src} -> {self.path}')
         self.link()
 
+        # create managed dir indicator file
+        if self.is_dir():
+            (self.path / SCAN_DIR_FILE).touch()
+
     def remove_path(self, path: Path):
         """ Remove file or directory """
         if path.is_dir():
@@ -275,6 +279,11 @@ class DotFileEncryptedBaseClass(DotFileBaseClass):
 
     def init(self, src):
         """ Move source path to dotfile location """
+
+        # create managed dir indicator file before encrypting
+        if self.is_dir():
+            (self.link_path / SCAN_DIR_FILE).touch()
+
         self.encrypt(src, self._key)
         self.remove_path(src)
         debug(self.name, 'init', f'removed original path: {src}')
@@ -370,25 +379,6 @@ class Channel():
                 ret.append(df)
         return ret
 
-    def search_scan_dirs(self, path):
-        """ Recursive find dirs containing the SCAN_DIR_FILE """
-        dirs = []
-        if (path / SCAN_DIR_FILE).is_file():
-            return [path]
-
-        for d in [p for p in path.iterdir() if p.is_dir()]:
-            dirs += self.search_scan_dirs(d)
-        return dirs
-
-    def is_parent_of(self, parent: Path, paths: list) -> bool:
-        """ Check if there parent is relative to one of the paths """
-        for d in paths:
-            try:
-                d.relative_to(parent)
-                return d
-            except ValueError:
-                pass
-
     def is_child_of(self, child: Path, parents: list) -> bool:
         """ Check if one of the paths is a parent of child path """
         for d in parents:
@@ -398,48 +388,37 @@ class Channel():
             except ValueError:
                 pass
 
-    def search_dotfiles(self, directory: Path) -> list:
-        """ Find dotfiles/dirs in channel
-
-            All directories that need to be searched have a special file in them.
-            eg:
-
-              ~/.config/dotfile.txt
-              ~/.config/.microdot
-
-            Without the special .microdot file, this dir can be interpreted as:
-                1) a dotdir: ~/.config with the file dotfile.txt in it
-                2) a dotfile: dotfile.txt inside the .config subdirectory: ~/.config
-
-            By placing a special file in the .config directory microdot knows that every file/dir in this directory should be treated as a dotfile/dir
-
-            The root of the channel is the exception to this rule.
-            All files/dirs in the root are treated as dotfiles/dirs
+    def scan_dir(self, path):
+        """ Recursive find dotfiles/dirs.
+            Dirs contain the SCAN_DIR_FILE, other dirs are ignored.
         """
-        # if directory is a dotfiles scan dir (see readme), interpret all dir contents as dotfiles/dirs
+        paths = []
+
+        for p in path.iterdir():
+            if (p / SCAN_DIR_FILE).is_file():
+                paths.append(p)
+            elif p.is_dir():
+                paths += self.scan_dir(p)
+            else:
+                paths.append(p)
+        return paths
+
+    def search_dotfiles(self, directory: Path) -> list:
         items = []
-
-        # search root of channel, filter out scan dirs
-        for p in directory.iterdir():
-            if not p.name.endswith(CONFLICT_EXT) and not p.name == SCAN_DIR_FILE and not self.is_parent_of(p, self.search_scan_dirs(directory)):
-                items.append(self.create_obj(p))
-
-        # search all search paths inside root of channel
-        for path in self.search_scan_dirs(directory):
-            items += [self.create_obj(p) for p in path.iterdir() if not p.name.endswith(CONFLICT_EXT) and not p.name == SCAN_DIR_FILE]
-
+        paths = self.scan_dir(directory)
+        for path in paths:
+            if path.name.endswith(CONFLICT_EXT):
+                continue
+            items.append(self.create_obj(path))
         return sorted(items, key=lambda item: item.name)
 
-    def search_conflicts(self, item, search_dirs):
+    def search_conflicts(self, directory, search_dirs):
         """ recursive find of files and dirs in channel when file/dir is in search_dirs """
-        # TODO do same thing here as in search_dotfiles()
-        items = [self.create_obj(f) for f in item.iterdir() if f.is_file() and f.name.endswith(CONFLICT_EXT)]
-
-        for d in [d for d in item.iterdir() if d.is_dir()]:
-            if d.name in SCAN_DIR_BLACKLIST:
-                continue
-            if d.name not in search_dirs:
-                items += self.search_conflicts(d, search_dirs)
+        items = []
+        paths = self.scan_dir(directory)
+        for path in paths:
+            if path.name.endswith(CONFLICT_EXT):
+                items.append(self.create_obj(path))
         return sorted(items, key=lambda item: item.name)
 
     def parse_conflict(self, name: str) -> str:
@@ -557,8 +536,6 @@ class Channel():
             dotfile.unlink()
             info("unlink_all", "unlinked", dotfile.name)
 
-    def search_parents(self, path: Path, search_name: Path):
-        """ Itter parents until search_name is found or we are at $HOME """
         while path != Path('/'):
             path = path.parent
             if (path/search_name).exists():
@@ -570,6 +547,17 @@ class Channel():
         except MicrodotError:
             pass
 
+    def search_parents(self, path):
+        """ Find an ancestor of path that is already managed by microdot """
+        paths = self.scan_dir(self._path)
+
+        while path != Path.home():
+            print(path)
+            p = self._path / path.relative_to(Path.home())
+            if p in paths:
+                return p
+            path = path.parent
+
     def init(self, path: Path, encrypted: bool=False) -> DotFileBaseClass:
         """ Start using a dotfile
             Copy dotfile to channel directory and create symlink. """
@@ -579,8 +567,7 @@ class Channel():
         except ValueError:
             raise MicrodotError(f"Path is not relative to homedir: {path}")
 
-        # search for a .microdot file in parents, start at p.parent to allow for a .microdot file to be in first parent
-        if (ret := self.search_parents(src.parent, SCAN_DIR_FILE)):
+        if (ret := self.search_parents(path.absolute())):
             raise MicrodotError(f"A parent of this path is already managed by microdot: {ret}")
 
         if self.is_child_of(path, [self._path.parent]):
@@ -610,11 +597,6 @@ class Channel():
             raise MicrodotError(f"Source path is a symlink: {path}")
 
         dotfile.init(path)
-
-        # place the file that indicates a dotfiles search dir
-        ind_file = dotfile.path.parent / SCAN_DIR_FILE
-        if not ind_file.is_file():
-            ind_file.touch()
 
         return dotfile
 

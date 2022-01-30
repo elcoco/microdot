@@ -559,6 +559,15 @@ class Channel():
                 return p
             path = path.parent
 
+    def search_children(self, path):
+        """ Find an ancestor of path that is already managed by microdot """
+        for df in self.dotfiles:
+            try:
+                df.link_path.relative_to(path)
+                return df.link_path
+            except ValueError:
+                pass
+
     def init(self, path: Path, encrypted: bool=False) -> DotBaseClass:
         """ Start using a dotfile
             Copy dotfile to channel directory and create symlink. """
@@ -570,6 +579,9 @@ class Channel():
 
         if (ret := self.search_parents(path.absolute())):
             raise MicrodotError(f"A parent of this path is already managed by microdot: {ret}")
+
+        if (ret := self.search_children(path.absolute())):
+            raise MicrodotError(f"A child of this path is already managed by microdot: {ret}")
 
         if self.is_child_of(path, [self._path.parent]):
             raise MicrodotError(f"Path should not be inside dotfiles dir: {path}")

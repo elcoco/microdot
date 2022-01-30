@@ -34,11 +34,10 @@ class LastSyncIndex():
         self._path.write_text('\n'.join(self._list))
 
     def add(self, path):
-        # TODO better matching
         self.read_list()
         name = path.name.split('#')[0]
         for item in self._list:
-            if f"{name}#" in item:
+            if item.startswith(f"{path.parent}/{name}#"):
                 self._list.remove(item)
 
         #logger.debug(f"STATUS: list_add: {path}")
@@ -108,20 +107,6 @@ class SyncAlgorithm(LastSyncIndex):
         if self.in_list(a) and not self.exists(b):
             debug("sync", "in_sync", a.name)
             return True
-
-#    def b_is_newer(self, a, b):
-#        if self.in_list(a) and not self.in_list(b):
-#            info('sync', 'newer', f'B is newer: {a.name} < {b.name}')
-#            self.remove(a)
-#            self.add(b)
-#            return True
-#
-#    def a_is_newer(self, a, b):
-#        if not self.in_list(a) and self.in_list(b):
-#            info('sync', 'newer', f'A is newer: {a.name} > {b.name}')
-#            self.add(a)
-#            self.remove(b)
-#            return True
 
     def is_in_conflict(self, a, b):
         """ Solve a conflict by choosing the local data and renaming the other file """

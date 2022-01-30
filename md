@@ -18,7 +18,6 @@ logger = logging.getLogger("microdot")
 
 class App():
     def parse_args(self, state):
-        #parser = argparse.ArgumentParser(prog='microdot', description='Microdot :: Manage dotfiles in style',
         parser = argparse.ArgumentParser(prog='microdot', usage='%(prog)s [OPTIONS]', description='Gotta manage them dotfiles',
                 formatter_class=lambda prog: argparse.HelpFormatter(prog,max_help_position=42))
 

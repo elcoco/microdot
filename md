@@ -178,8 +178,12 @@ class App():
 
             try:
                 orig_df = state.channel.get_encrypted_dotfile(orig_path)
-                conflict_df = state.channel.get_conflict(conflict_path)
-                handle_conflict(orig_df, conflict_df)
+
+                if not (conflict := orig_df.has_conflict(conflict_path)):
+                    die("Conflict not found")
+
+                #conflict_df = state.channel.get_conflict(conflict_path)
+                handle_conflict(orig_df, conflict)
             except MicrodotError as e:
                 die(e)
         else:

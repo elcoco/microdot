@@ -82,15 +82,15 @@ class SyncAlgorithm(LastSyncIndex):
             else:
                 if decrypted_path.is_file():
                     decrypted_path.unlink()
-                    info("sync", "deleted_file", decrypted_path)
+                    info("check_removed", "deleted_file", decrypted_path)
                 elif decrypted_path.is_dir():
                     shutil.rmtree(decrypted_path, ignore_errors=False, onerror=None)
-                    info("sync", "deleted_dir", decrypted_path)
+                    info("check_removed", "deleted_dir", decrypted_path)
                 else:
                     logger.error(f"Dont know what to do with this path: {decrypted_path}")
 
                 self.remove(encrypted_path)
-                info("sync", "rmlist", decrypted_path)
+                info("check_removed", "rmlist", decrypted_path)
 
     def a_is_new(self, a, b):
         if not self.in_list(a) and not self.exists(b):

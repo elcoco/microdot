@@ -8,6 +8,7 @@ import tempfile
 from itertools import groupby
 import datetime
 import re
+from dataclasses import dataclass
 
 from core.exceptions import MicrodotError
 from core import state
@@ -151,33 +152,26 @@ class DotFileEncryptedBaseClass(DotFileBaseClass):
             self.link_path = Path.home() / self.name
             self.cleanup_link()
         except ValueError:
-            try: # parse CONFLICT file: ~/.dotfiles/common/testdir#IzjOuV4h#20220121162145#D#CRYPT
-                name, self.hash, ts,  _, _, _ = path.name.split('#')
-                self.path = channel.parent / DECRYPTED_DIR / channel.name / path.relative_to(channel).parent / name
-                self.encrypted_path = path
-                self.name = self.path.relative_to(channel.parent / DECRYPTED_DIR / channel.name)
-                self.timestamp = datetime.datetime.strptime(ts, TIMESTAMP_FORMAT)
-                self.conflict_name = path.relative_to(channel)
-            except ValueError:
-                try: # parse path that will be used by init to initiate new encrypted dotfile: ~/.dotfiles/common/testfile.txt
-                     # allow incomplete data. missing data will be added later
-                    self.hash = None
-                    self.path = channel.parent / DECRYPTED_DIR / channel.name / path.relative_to(channel)
-                    self.name = path.relative_to(channel)
-                    try:
-                        self.encrypted_path = self.get_encrypted_path(channel, self.name)
-                    except FileNotFoundError:
-                        self.encrypted_path = None
+            try: # parse path that will be used by init to initiate new encrypted dotfile: ~/.dotfiles/common/testfile.txt
+                 # allow incomplete data. missing data will be added later
+                self.hash = None
+                self.path = channel.parent / DECRYPTED_DIR / channel.name / path.relative_to(channel)
+                self.name = path.relative_to(channel)
+                try:
+                    self.encrypted_path = self.get_encrypted_path(channel, self.name)
+                except FileNotFoundError:
+                    self.encrypted_path = None
 
-                    self.timestamp = datetime.datetime.utcnow()
-                except ValueError:
-                    raise MicrodotError(f"Failed to parse path: {path}")
+                self.timestamp = datetime.datetime.utcnow()
+            except ValueError:
+                raise MicrodotError(f"Failed to parse path: {path}")
 
         self.channel = channel
         self.link_path = Path.home() / self.name
         self.is_encrypted = True
         self._key = key
 
+        self.conflicts = self.search_conflicts()
 
         # ensure decrypted dir exists
         if not self.path.parent.is_dir():
@@ -188,6 +182,29 @@ class DotFileEncryptedBaseClass(DotFileBaseClass):
         if self.encrypted_path and not self.encrypted_path.parent.is_dir():
             debug(self.name, 'mkdir', self.encrypted_path.parent)
             self.encrypted_path.parent.mkdir(parents=True)
+
+    def search_conflicts(self):
+        """ Find conflicts that belong to this dotfile/dir """
+        conflicts = []
+        for p in self.encrypted_path.parent.iterdir():
+            if not p.name.endswith(CONFLICT_EXT):
+                continue
+            try:
+                name, _, _,  _, _, _ = p.name.split('#')
+                if name == self.name.name:
+                    conflicts.append(Conflict(p, p.relative_to(self.channel)))
+            except ValueError:
+                pass
+
+        return conflicts
+
+    def has_conflict(self, path):
+        for c in self.conflicts:
+            if c.name == path:
+                return c
+
+    def decrypt_conflict(self, conflict, dest):
+        self.decrypt(src=conflict.path, dest=dest)
 
     def encrypt(self, src, key=None, force=False):
         """ Do some encryption here and write to self.encrypted_path """
@@ -218,22 +235,25 @@ class DotFileEncryptedBaseClass(DotFileBaseClass):
         self.encrypted_path.write_bytes(encrypted)
         debug(self.name, 'encrypted', f'{src.name} -> {self.encrypted_path}')
 
-    def decrypt(self, dest=None):
+    def decrypt(self, dest=None, src=None):
         """ Do some decryption here and write to dest path """
         if dest == None:
             dest = self.path
+
+        if src == None:
+            src = self.encrypted_path
 
         if dest.exists():
             dest.unlink()
 
         try:
             fernet = Fernet(self._key)
-            decrypted = fernet.decrypt(self.encrypted_path.read_bytes())
+            decrypted = fernet.decrypt(src.read_bytes())
         except cryptography.fernet.InvalidToken:
-            raise MicrodotError(f"Failed to decrypt {self.encrypted_path}, invalid key.")
+            raise MicrodotError(f"Failed to decrypt {src}, invalid key.")
 
         dest.write_bytes(decrypted)
-        debug(self.name, 'decrypted', f'{self.encrypted_path.name} -> {dest}')
+        debug(self.name, 'decrypted', f'{src.name} -> {dest}')
 
     def link(self, force=False):
         self.decrypt()
@@ -309,6 +329,12 @@ class DotFileEncryptedBaseClass(DotFileBaseClass):
             df.link()
 
 
+@dataclass
+class Conflict():
+    path: Path
+    name: str
+
+
 class DotFileEncrypted(DotFileEncryptedBaseClass):
     def __init__(self, *args):
         super().__init__(*args)
@@ -330,14 +356,14 @@ class DotDirEncrypted(DotFileEncryptedBaseClass):
     def is_dir(self):
         return True
 
-    def decrypt(self, dest=None):
+    def decrypt(self, dest=None, src=None):
         if dest == None:
             dest = self.path
 
         tmp_dir = Path(tempfile.mkdtemp())
         tmp_file = Path(tempfile.mktemp())
 
-        DotFileEncryptedBaseClass.decrypt(self, tmp_file)
+        DotFileEncryptedBaseClass.decrypt(self, src=src, dest=tmp_file)
 
         with tarfile.open(tmp_file, 'r') as tar:
             tar.extractall(tmp_dir)
@@ -362,14 +388,15 @@ class Channel():
         self.dotfiles = self.search_dotfiles(self._path)
         self.dotfiles = self.filter_decrypted(self.dotfiles)
         self._colors = state.colors
-        self.conflicts = sorted(self.search_conflicts(self._path, state.core.check_dirs), key=lambda x: x.timestamp, reverse=True)
 
     def create_obj(self, path):
         """ Create a brand new DotFileBaseClass object """
-        if path.name.endswith(ENCRYPTED_DIR_EXT) or path.name.endswith(CONFLICT_DIR_EXT):
+        if path.name.endswith(ENCRYPTED_DIR_EXT):
             return DotDirEncrypted(path, self._path, self._key)
-        elif path.name.endswith(ENCRYPTED_FILE_EXT) or path.name.endswith(CONFLICT_FILE_EXT):
+        elif path.name.endswith(ENCRYPTED_FILE_EXT):
             return DotFileEncrypted(path, self._path, self._key)
+        elif path.name.endswith(CONFLICT_FILE_EXT) or path.name.endswith(CONFLICT_DIR_EXT):
+            return DotFileConflict(path, self._path, self._key)
         return DotFileBaseClass(path, self._path)
 
     def filter_decrypted(self, dotfiles):
@@ -413,15 +440,6 @@ class Channel():
             if path.name.endswith(CONFLICT_EXT):
                 continue
             items.append(self.create_obj(path))
-        return sorted(items, key=lambda item: item.name)
-
-    def search_conflicts(self, directory, search_dirs):
-        """ recursive find of files and dirs in channel when file/dir is in search_dirs """
-        items = []
-        paths = self.scan_dir(directory)
-        for path in paths:
-            if path.name.endswith(CONFLICT_EXT):
-                items.append(self.create_obj(path))
         return sorted(items, key=lambda item: item.name)
 
     def parse_conflict(self, name: str) -> str:
@@ -477,19 +495,20 @@ class Channel():
                           item.name,
                           colorize(item.hash, 'green'),
                           colorize(f"{item.timestamp}", 'magenta')])
+
         cols.show()
 
-        #cols = Columnize()
         cols = Columnize(prefix='  ', prefix_color='red')
-        for item in self.conflicts:
+        for item in encrypted:
+            for conflict in item.conflicts:
 
-            # color format conflict string
-            name = item.conflict_name.parent / self.parse_conflict(item.conflict_name.name)
+                # color format conflict string
+                name = conflict.name.parent / self.parse_conflict(conflict.name.name)
 
-            if item.is_dir():
-                cols.add([colorize(f"[CD]", self._colors.conflict), name])
-            else:
-                cols.add([colorize(f"[CF]", self._colors.conflict), name])
+                if item.is_dir():
+                    cols.add([colorize(f"[CD]", self._colors.conflict), name])
+                else:
+                    cols.add([colorize(f"[CF]", self._colors.conflict), name])
         cols.show()
 
     def get_dotfile(self, name):
@@ -508,13 +527,6 @@ class Channel():
             if str(df.name) == str(name):
                 return df
         raise MicrodotError(f"Encrypted dotfile not found: {name}")
-
-    def get_conflict(self, name):
-        """ Get DotFile object by conflict file name """
-        for df in self.conflicts:
-            if str(df.conflict_name) == str(name):
-                return df
-        raise MicrodotError(f"Conflict not found: {name}")
 
     def link_all(self, force=False):
         """ Link all dotfiles in channel """

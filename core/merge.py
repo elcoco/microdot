@@ -10,6 +10,7 @@ from filecmp import dircmp
 
 from core.utils import debug, info, get_hash, get_tar, confirm
 from core.exceptions import MicrodotError
+from core.channel import Conflict
 
 logger = logging.getLogger("microdot")
 
@@ -243,14 +244,14 @@ def cleanup(items):
             item.unlink()
         debug("cleanup", "removed", item)
 
-def handle_file_conflict(df_current, df_conflict):
+def handle_file_conflict(df_current, conflict: Conflict):
     """ Go through the full process of handling a file conflict """
 
     # decrypt current and conflict file to tmp files
     tmp_current  = Path(tempfile.mktemp(prefix=f'current_{df_current.name.name}_'))
     tmp_conflict = Path(tempfile.mktemp(prefix=f'conflict_{df_current.name.name}_'))
     df_current.decrypt(dest=tmp_current)
-    df_conflict.decrypt(dest=tmp_conflict)
+    df_current.decrypt_conflict(conflict, tmp_conflict)
 
     # perform merge
     merge = MergeFile(tmp_current, tmp_conflict)
@@ -271,12 +272,12 @@ def handle_file_conflict(df_current, df_conflict):
     cleanup([tmp_current, tmp_conflict])
     return True
 
-def handle_dir_conflict(df_current, df_conflict):
+def handle_dir_conflict(df_current, conflict: Conflict):
     # decrypt current and conflict dirs to tmp dirs
     tmp_current  = Path(tempfile.mkdtemp(prefix=f'current_{df_current.name.name}_'))
     tmp_conflict = Path(tempfile.mkdtemp(prefix=f'conflict_{df_current.name.name}_'))
     df_current.decrypt(dest=tmp_current / df_current.name)
-    df_conflict.decrypt(dest=tmp_conflict / df_current.name)
+    df_current.decrypt_conflict(conflict, tmp_conflict / df_current.name)
 
     merge = MergeDir(tmp_current, tmp_conflict)
     if not merge.merge():
@@ -305,18 +306,18 @@ def handle_dir_conflict(df_current, df_conflict):
     cleanup([tmp_current, tmp_conflict])
     return True
 
-def handle_conflict(df_current, df_conflict):
+def handle_conflict(df_current, conflict):
     # check if there are differences between decrypted and last encrypted versions of dotfile.
     # update if necessary.
     if df_current.is_changed():
         df_current.update()
 
     if df_current.is_file():
-        if not handle_file_conflict(df_current, df_conflict):
+        if not handle_file_conflict(df_current, conflict):
             return
     else:
-        if not handle_dir_conflict(df_current, df_conflict):
+        if not handle_dir_conflict(df_current, conflict):
             return
 
-    if confirm(f"Would you like to remove conflict file: {df_conflict.encrypted_path}?", canceled_msg="canceled"):
-        df_conflict.encrypted_path.unlink()
+    if confirm(f"Would you like to remove conflict file: {conflict.name}?", canceled_msg="canceled"):
+        conflict.path.unlink()

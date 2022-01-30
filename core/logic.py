@@ -4,7 +4,7 @@ import shutil
 
 from core.utils import info, debug
 from core import state
-from core.channel import DotFileEncryptedBaseClass
+from core.channel import DotEncryptedBaseClass
 
 logger = logging.getLogger("microdot")
 
@@ -67,7 +67,7 @@ class SyncAlgorithm(LastSyncIndex):
                 continue
 
             # TODO create dotfile object and get all paths from here (find a way to get channel path)
-            #df = DotFileEncryptedBaseClass(Path(path), chan, None)
+            #df = DotEncryptedBaseClass(Path(path), chan, None)
 
             encrypted_path = Path(path)
             name = encrypted_path.name.split('#')[0]

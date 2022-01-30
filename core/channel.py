@@ -26,11 +26,12 @@ logger = logging.getLogger("microdot")
 
 @dataclass
 class Conflict():
+    """ Represents a conflict file, is instantiated by DotEncryptedBaseClass """
     path: Path
     name: str
 
 
-class DotFileBaseClass():
+class DotBaseClass():
     def __init__(self, path, channel):
         """ path is where dotfile source is: /home/eco/.dotfiles/common/testfile.txt """
 
@@ -143,20 +144,16 @@ class DotFileBaseClass():
             df.link()
         
 
-class DotFileEncryptedBaseClass(DotFileBaseClass):
+class DotEncryptedBaseClass(DotBaseClass):
     """ Baseclass for all encrypted files/directories """
     def __init__(self, path, channel, key):
-        try: # parse ENCRYPTED file: ~/.dotfiles/common/testdir#IzjOuV4h#20220121162145#D#CRYPT
+        try: # parse CRYPT file: ~/.dotfiles/common/testdir#IzjOuV4h#20220121162145#D#CRYPT
             name, self.hash, ts,  _, _ = path.name.split('#')
             self.path = channel.parent / DECRYPTED_DIR / channel.name / path.relative_to(channel).parent / name
             self.encrypted_path = path
             self.name = self.path.relative_to(channel.parent / DECRYPTED_DIR / channel.name)
             self.timestamp = datetime.datetime.strptime(ts, TIMESTAMP_FORMAT)
-
-            # cleanup orphan links (symlink that points to non existing data
-            # don't do this for conflict files or shit breaks loose
             self.link_path = Path.home() / self.name
-            self.cleanup_link()
         except ValueError:
             try: # parse path that will be used by init to initiate new encrypted dotfile: ~/.dotfiles/common/testfile.txt
                  # allow incomplete data. missing data will be added later
@@ -176,6 +173,9 @@ class DotFileEncryptedBaseClass(DotFileBaseClass):
         self.link_path = Path.home() / self.name
         self.is_encrypted = True
         self._key = key
+
+        # cleanup orphan links (symlink that point to non existing data
+        self.cleanup_link()
 
         # ensure decrypted dir exists
         if not self.path.parent.is_dir():
@@ -260,7 +260,7 @@ class DotFileEncryptedBaseClass(DotFileBaseClass):
 
     def link(self, force=False):
         self.decrypt()
-        DotFileBaseClass.link(self, force=force)
+        DotBaseClass.link(self, force=force)
 
     def update(self):
         """ Update encrypted file if decrypted file/dir has changed from encrypted file """
@@ -298,7 +298,7 @@ class DotFileEncryptedBaseClass(DotFileBaseClass):
             return channel / ENCRYPTED_FILE_FORMAT.format(name=name, ts=ts, md5=md5)
 
     def unlink(self):
-        if not DotFileBaseClass.unlink(self):
+        if not DotBaseClass.unlink(self):
             return
         self.remove_path(self.path)
         debug(self.name, 'removed', f'decrypted path: {self.path.name}')
@@ -328,11 +328,11 @@ class DotFileEncryptedBaseClass(DotFileBaseClass):
         self.encrypted_path.unlink()
 
         if was_linked:
-            df = DotFileBaseClass(path, self.channel)
+            df = DotBaseClass(path, self.channel)
             df.link()
 
 
-class DotFileEncrypted(DotFileEncryptedBaseClass):
+class DotFileEncrypted(DotEncryptedBaseClass):
     def __init__(self, *args):
         super().__init__(*args)
 
@@ -343,7 +343,7 @@ class DotFileEncrypted(DotFileEncryptedBaseClass):
         return False
 
 
-class DotDirEncrypted(DotFileEncryptedBaseClass):
+class DotDirEncrypted(DotEncryptedBaseClass):
     def __init__(self, *args):
         super().__init__(*args)
 
@@ -360,14 +360,13 @@ class DotDirEncrypted(DotFileEncryptedBaseClass):
         tmp_dir = Path(tempfile.mkdtemp())
         tmp_file = Path(tempfile.mktemp())
 
-        DotFileEncryptedBaseClass.decrypt(self, src=src, dest=tmp_file)
+        DotEncryptedBaseClass.decrypt(self, src=src, dest=tmp_file)
 
         with tarfile.open(tmp_file, 'r') as tar:
             tar.extractall(tmp_dir)
 
         if dest.exists():
             shutil.rmtree(dest, ignore_errors=False, onerror=None)
-        # TODO new path doesn't exist yet
 
         # cant use pathlib's replace because files need to be on same filesystem
         shutil.move((tmp_dir / self.name.name), dest)
@@ -387,13 +386,13 @@ class Channel():
         self._colors = state.colors
 
     def create_obj(self, path):
-        """ Create a brand new DotFileBaseClass object """
+        """ Create a brand new DotBaseClass object """
         if path.name.endswith(ENCRYPTED_DIR_EXT):
             return DotDirEncrypted(path, self._path, self._key)
         elif path.name.endswith(ENCRYPTED_FILE_EXT):
             return DotFileEncrypted(path, self._path, self._key)
         else:
-            return DotFileBaseClass(path, self._path)
+            return DotBaseClass(path, self._path)
 
     def filter_decrypted(self, dotfiles):
         """ Check if there are decrypted paths in the list """
@@ -560,7 +559,7 @@ class Channel():
                 return p
             path = path.parent
 
-    def init(self, path: Path, encrypted: bool=False) -> DotFileBaseClass:
+    def init(self, path: Path, encrypted: bool=False) -> DotBaseClass:
         """ Start using a dotfile
             Copy dotfile to channel directory and create symlink. """
 
@@ -584,7 +583,7 @@ class Channel():
                 raise MicrodotError(f"Path is not a file or directory: {path}")
         else:
             if path.is_file() or path.is_dir():
-                dotfile = DotFileBaseClass(src, self._path)
+                dotfile = DotBaseClass(src, self._path)
             else:
                 raise MicrodotError(f"Path is not a file or directory: {path}")
 

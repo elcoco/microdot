@@ -39,9 +39,9 @@
       ask the user to remove file from git cache
 - [x] add unencrypt option
 
-- [x] if there are two encrypted paths with same filename, sync will alway say the first file is new
-      ├─ [EF] testfile.txt                     CyW2RHgK 2022-01-22 22:25:01
-      └─ [EF] tmp/misc/testdir/testfile.txt    GaJbGojG 2022-01-30 17:16:26
+- [x] if there are two encrypted paths with same filename, sync will alway say the first file is new  
+      ├─ [EF] testfile.txt                     CyW2RHgK 2022-01-22 22:25:01  
+      └─ [EF] tmp/misc/testdir/testfile.txt    GaJbGojG 2022-01-30 17:16:26  
 - [x] conflict files should have a path
 
 - [x] make dotfile classes a bit more logical

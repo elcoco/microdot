@@ -6,46 +6,75 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 
-CON_CHR = '│'
-MID_CHR = '├─'
-ENC_CHR = '└─'
-
-# set level in Item
+JOINT = '├── '
+END   = '└── '
+PPREFIX = '│   '
+EPREFIX = '    '
 
 @dataclass
-class Item():
-    name: str
-    level: int = 0
-    parent: str = Optional[None]
-    children: list = field(default_factory=list)
+class Node():
+    _name: str
+    _parent: 'Node' = None
+    _next: 'Node'   = None
+    _children: list = field(default_factory=list)
 
-    def add_child(self, item):
-        item.parent = self
-        self.children.append(item)
+    def add_child(self, name):
+        node = Node(name,
+                    _parent = self)
+
+        # connect siblings
+        if self._children:
+            self._children[-1]._next = node
+
+        self._children.append(node)
+        return node
+
+    def follow(self, node, string=''):
+        """ Follow tree back to root and find tree chars """
+        if not node:
+            return string
+
+        # return if node is root node
+        if not node._parent:
+            return string
+
+        if node._next:
+            string += PPREFIX[::-1]
+        else:
+            string += EPREFIX[::-1]
+
+        string = self.follow(node._parent, string)
+        return string
 
     def has_children(self):
-        return len(children)
+        return len(self._children)
 
-    def display(self, level=0):
-        #string = f"{CON_CHR} " * level + MID_CHR
+    def display_tree(self):
+        prefix = self.follow(self._parent)[::-1]
 
-        string = "  " * level
-        print(string + self.name)
+        # if node is not the root node
+        if self._parent:
+            if self._next:
+                prefix += JOINT
+            else:
+                prefix += END
 
-        for item in self.children:
-            item.display(level+1)
+        print(f"{prefix}{self._name}")
+
+        for node in self._children:
+            node.display_tree()
 
 
-def search(path: Path, item: Item):
+def search(path: Path, node: Node):
+    """ Fill tree """
     if path.is_file():
-        f_item = Item(f"[F] {path.name}")
-        item.add_child(f_item)
+        node.add_child(f"{path.name}")
+    elif path.is_symlink():
+        node.add_child(f"{path.name}")
     else:
-        d_item = Item(f"[D] {path.name}")
-        item.add_child(d_item)
-
+        d_node = node.add_child(f"{path.name}")
         for p in path.iterdir():
-            search(p, d_item)
+            search(p, d_node)
 
 
 if len(sys.argv) < 2:
@@ -53,7 +82,7 @@ if len(sys.argv) < 2:
     sys.exit()
 
 path = Path(sys.argv[1])
-root = Item(f"[ROOT] {path.name}")
+root = Node(f"[ROOT] {path.name}")
 search(path, root)
-root.display()
+root.display_tree()
 

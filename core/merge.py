@@ -10,7 +10,7 @@ from filecmp import dircmp
 
 from core.utils import debug, info, get_hash, get_tar, confirm
 from core.exceptions import MicrodotError
-from core.channel import Conflict
+from core.channel import Conflict, DotBaseClass
 
 logger = logging.getLogger("microdot")
 
@@ -244,7 +244,7 @@ def cleanup(items):
             item.unlink()
         debug("cleanup", "removed", item)
 
-def handle_file_conflict(df_current, conflict: Conflict):
+def handle_file_conflict(df_current: DotBaseClass, conflict: Conflict):
     """ Go through the full process of handling a file conflict """
 
     # decrypt current and conflict file to tmp files
@@ -272,7 +272,7 @@ def handle_file_conflict(df_current, conflict: Conflict):
     cleanup([tmp_current, tmp_conflict])
     return True
 
-def handle_dir_conflict(df_current, conflict: Conflict):
+def handle_dir_conflict(df_current: DotBaseClass, conflict: Conflict):
     # decrypt current and conflict dirs to tmp dirs
     tmp_current  = Path(tempfile.mkdtemp(prefix=f'current_{df_current.name.name}_'))
     tmp_conflict = Path(tempfile.mkdtemp(prefix=f'conflict_{df_current.name.name}_'))
@@ -306,7 +306,7 @@ def handle_dir_conflict(df_current, conflict: Conflict):
     cleanup([tmp_current, tmp_conflict])
     return True
 
-def handle_conflict(df_current, conflict):
+def handle_conflict(df_current: DotBaseClass, conflict: Conflict):
     # check if there are differences between decrypted and last encrypted versions of dotfile.
     # update if necessary.
     if df_current.is_changed():

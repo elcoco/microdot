@@ -30,8 +30,28 @@ class Conflict():
     path: Path
     name: str
 
+    def parse(self, name: str) -> str:
+        """ Use regex to parse conflict file name, return colored string """
+        try:
+            r = re.search(r"(.+)#(.+)#([0-9]+)#([A-Z])#([A-Z]+)#([A-Z]+)", name)
+        except re.error as e:
+            raise MicrodotError(f"Failed to parse string, {e}")
+        except TypeError as e:
+            raise MicrodotError(f"Failed to parse string, {e}")
+
+        n = []
+        n.append(colorize(r.group(1), 'default'))
+        n.append(colorize(r.group(2), 'green'))
+        n.append(colorize(r.group(3), 'magenta'))
+        n.append(colorize(r.group(4), 'blue'))
+        n.append(colorize(r.group(5), 'blue'))
+        n.append(colorize(r.group(6), 'blue'))
+        return colorize('#', 'default').join(n)
+
 
 class DotBaseClass():
+    """ Represents an unencrypted dotfile/dir.
+        Is also the baseclass for DotEncryptedBaseClass """
     def __init__(self, path, channel):
         """ path is where dotfile source is: /home/eco/.dotfiles/common/testfile.txt """
 
@@ -307,8 +327,8 @@ class DotEncryptedBaseClass(DotBaseClass):
         """ Move source path to dotfile location """
 
         # create managed dir indicator file before encrypting
-        if self.is_dir():
-            (self.link_path / SCAN_DIR_FILE).touch()
+        #if self.is_dir():
+        #    (self.link_path / SCAN_DIR_FILE).touch()
 
         self.encrypt(src, self._key)
         self.remove_path(src)
@@ -333,6 +353,7 @@ class DotEncryptedBaseClass(DotBaseClass):
 
 
 class DotFileEncrypted(DotEncryptedBaseClass):
+    """ Represents encrypted file """
     def __init__(self, *args):
         super().__init__(*args)
 
@@ -344,6 +365,7 @@ class DotFileEncrypted(DotEncryptedBaseClass):
 
 
 class DotDirEncrypted(DotEncryptedBaseClass):
+    """ Represents encrypted dir """
     def __init__(self, *args):
         super().__init__(*args)
 
@@ -382,78 +404,7 @@ class Channel():
         self._path = path
         self.name = path.name
         self.dotfiles = self.search_dotfiles(self._path)
-        self.dotfiles = self.filter_decrypted(self.dotfiles)
         self._colors = state.colors
-
-    def create_obj(self, path):
-        """ Create a brand new DotBaseClass object """
-        if path.name.endswith(ENCRYPTED_DIR_EXT):
-            return DotDirEncrypted(path, self._path, self._key)
-        elif path.name.endswith(ENCRYPTED_FILE_EXT):
-            return DotFileEncrypted(path, self._path, self._key)
-        else:
-            return DotBaseClass(path, self._path)
-
-    def filter_decrypted(self, dotfiles):
-        """ Check if there are decrypted paths in the list """
-        ret = [df for df in dotfiles if df.is_encrypted]
-        encr_paths = [df.path for df in dotfiles if df.is_encrypted]
-
-        for df in dotfiles:
-            if df.path not in encr_paths:
-                ret.append(df)
-        return ret
-
-    def is_child_of(self, child: Path, parents: list) -> bool:
-        """ Check if one of the paths is a parent of child path """
-        for d in parents:
-            try:
-                child.relative_to(d)
-                return d
-            except ValueError:
-                pass
-
-    def scan_dir(self, path):
-        """ Recursive find dotfiles/dirs.
-            Dirs contain the SCAN_DIR_FILE, other dirs are ignored.
-        """
-        paths = []
-
-        for p in path.iterdir():
-            if (p / SCAN_DIR_FILE).is_file():
-                paths.append(p)
-            elif p.is_dir():
-                paths += self.scan_dir(p)
-            else:
-                paths.append(p)
-        return paths
-
-    def search_dotfiles(self, directory: Path) -> list:
-        items = []
-        paths = self.scan_dir(directory)
-        for path in paths:
-            if path.name.endswith(CONFLICT_EXT):
-                continue
-            items.append(self.create_obj(path))
-        return sorted(items, key=lambda item: item.name)
-
-    def parse_conflict(self, name: str) -> str:
-        """ Use regex to parse conflict file name, return colored string """
-        try:
-            r = re.search(r"(.+)#(.+)#([0-9]+)#([A-Z])#([A-Z]+)#([A-Z]+)", name)
-        except re.error as e:
-            raise MicrodotError(f"Failed to parse string, {e}")
-        except TypeError as e:
-            raise MicrodotError(f"Failed to parse string, {e}")
-
-        n = []
-        n.append(colorize(r.group(1), 'default'))
-        n.append(colorize(r.group(2), 'green'))
-        n.append(colorize(r.group(3), 'magenta'))
-        n.append(colorize(r.group(4), 'blue'))
-        n.append(colorize(r.group(5), 'blue'))
-        n.append(colorize(r.group(6), 'blue'))
-        return colorize('#', 'default').join(n)
 
     def list(self):
         """ Pretty print all dotfiles """
@@ -498,29 +449,13 @@ class Channel():
             for conflict in item.get_conflicts():
 
                 # color format conflict string
-                name = conflict.name.parent / self.parse_conflict(conflict.name.name)
+                name = conflict.name.parent / conflict.parse(conflict.name.name)
 
                 if item.is_dir():
                     cols.add([colorize(f"[CD]", self._colors.conflict), name])
                 else:
                     cols.add([colorize(f"[CF]", self._colors.conflict), name])
         cols.show()
-
-    def get_dotfile(self, name):
-        """ Get dotfile object by filename """
-        for df in self.dotfiles:
-            if str(df.name) == str(name):
-                return df
-        raise MicrodotError(f"Dotfile not found: {name}")
-
-    def get_encrypted_dotfile(self, name):
-        """ Get an encrypted dotfile object by filename """
-        for df in self.dotfiles:
-            if not df.is_encrypted:
-                continue
-            if str(df.name) == str(name):
-                return df
-        raise MicrodotError(f"Encrypted dotfile not found: {name}")
 
     def link_all(self, force=False):
         """ Link all dotfiles in channel """
@@ -542,31 +477,6 @@ class Channel():
         for dotfile in dotfiles:
             dotfile.unlink()
             info("unlink_all", "unlinked", dotfile.name)
-
-    def dotfile_exists(self, name: str) -> bool:
-        try:
-            return self.get_dotfile(name)
-        except MicrodotError:
-            pass
-
-    def search_parents(self, path):
-        """ Find an ancestor of path that is already managed by microdot """
-        paths = self.scan_dir(self._path)
-
-        while path != Path.home():
-            p = self._path / path.relative_to(Path.home())
-            if p in paths:
-                return p
-            path = path.parent
-
-    def search_children(self, path):
-        """ Find an ancestor of path that is already managed by microdot """
-        for df in self.dotfiles:
-            try:
-                df.link_path.relative_to(path)
-                return df.link_path
-            except ValueError:
-                pass
 
     def init(self, path: Path, encrypted: bool=False) -> DotBaseClass:
         """ Start using a dotfile
@@ -603,6 +513,7 @@ class Channel():
         if self.dotfile_exists(dotfile.name):
             raise MicrodotError(f"Dotfile already managed: {dotfile.name}")
 
+        # TODO: after orphan cleanup, the file may be removed
         if not (path.is_file() or path.is_dir()):
             raise MicrodotError(f"Source path is not a file or directory: {path}")
 
@@ -612,6 +523,83 @@ class Channel():
         dotfile.init(path)
 
         return dotfile
+
+    def scan_dir(self, path):
+        """ Recursive find paths to dotfiles/dirs.
+            Dotdirs contain the SCAN_DIR_FILE
+            Dotfiles are endpoints in channel dir that are not within a dotdir
+        """
+        paths = []
+
+        for p in path.iterdir():
+            if (p / SCAN_DIR_FILE).is_file():
+                paths.append(p)
+            elif p.is_dir():
+                paths += self.scan_dir(p)
+            else:
+                paths.append(p)
+        return paths
+
+    def search_dotfiles(self, directory: Path) -> list:
+        """ Search channel for dotfile/dirs """
+        items = []
+        for path in self.scan_dir(directory):
+            if path.name.endswith(CONFLICT_EXT):
+                continue
+            elif path.name.endswith(ENCRYPTED_DIR_EXT):
+                items.append(DotDirEncrypted(path, self._path, self._key))
+            elif path.name.endswith(ENCRYPTED_FILE_EXT):
+                items.append(DotFileEncrypted(path, self._path, self._key))
+            else:
+                items.append(DotBaseClass(path, self._path))
+        return sorted(items, key=lambda item: item.name)
+
+    def get_dotfile(self, name):
+        """ Get dotfile object by filename """
+        for df in self.dotfiles:
+            if str(df.name) == str(name):
+                return df
+        raise MicrodotError(f"Dotfile not found: {name}")
+
+    def get_encrypted_dotfile(self, name):
+        """ Get an encrypted dotfile object by filename """
+        for df in self.dotfiles:
+            if df.is_encrypted and str(df.name) == str(name):
+                return df
+        raise MicrodotError(f"Encrypted dotfile not found: {name}")
+
+    def dotfile_exists(self, name: str) -> bool:
+        try:
+            return self.get_dotfile(name)
+        except MicrodotError:
+            pass
+
+    def search_parents(self, path):
+        """ Find an ancestor of path that is already managed by microdot """
+        for df in self.dotfiles:
+            try:
+                path.relative_to(df.link_path)
+                return df.link_path
+            except ValueError:
+                pass
+
+    def search_children(self, path):
+        """ Find an ancestor of path that is already managed by microdot """
+        for df in self.dotfiles:
+            try:
+                df.link_path.relative_to(path)
+                return df.link_path
+            except ValueError:
+                pass
+
+    def is_child_of(self, child: Path, parents: list) -> bool:
+        """ Check if one of the paths is a parent of child path """
+        for d in parents:
+            try:
+                child.relative_to(d)
+                return d
+            except ValueError:
+                pass
 
 
 def get_channels(state):

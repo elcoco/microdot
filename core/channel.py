@@ -457,14 +457,15 @@ class Channel():
 
     def create_tree(self, df, node: TreeNode):
         """ Create TreeNode structure, will be listed by list() """
+        # get or create all parent nodes
         path = df.link_path.relative_to(Path.home())
         for p in reversed(path.parents):
             if p == Path('.'):
                 continue
             node = node.get_child(p.name)
 
+        # add dotfile/dir node
         color = self._colors.linked if df.check_symlink() else self._colors.unlinked
-
         if df.is_encrypted:
             if df.is_dir():
                 child = node.get_child(self.format_df('[ED]', df.name.name, color))

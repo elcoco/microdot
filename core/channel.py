@@ -16,7 +16,7 @@ from core import CONFLICT_EXT, ENCRYPTED_DIR_EXT, ENCRYPTED_FILE_EXT, ENCRYPTED_
 from core import CONFLICT_FILE_EXT, CONFLICT_DIR_EXT, TIMESTAMP_FORMAT, DECRYPTED_DIR, SCAN_CHANNEL_BLACKLIST, SCAN_DIR_BLACKLIST
 from core import SCAN_DIR_FILE
 from core.utils import confirm, colorize, debug, info, get_hash, get_tar
-from core.utils import Columnize
+from core.utils import Columnize, TreeNode
 
 from cryptography.fernet import Fernet
 import cryptography
@@ -30,10 +30,10 @@ class Conflict():
     path: Path
     name: str
 
-    def parse(self, name: str) -> str:
+    def parse(self) -> str:
         """ Use regex to parse conflict file name, return colored string """
         try:
-            r = re.search(r"(.+)#(.+)#([0-9]+)#([A-Z])#([A-Z]+)#([A-Z]+)", name)
+            r = re.search(r"(.+)#(.+)#([0-9]+)#([A-Z])#([A-Z]+)#([A-Z]+)", self.name.name)
         except re.error as e:
             raise MicrodotError(f"Failed to parse string, {e}")
         except TypeError as e:
@@ -401,7 +401,7 @@ class Channel():
         self.dotfiles = self.search_dotfiles(self._path)
         self._colors = state.colors
 
-    def list(self):
+    def list_flat(self):
         """ Pretty print all dotfiles """
         print(colorize(f"\nchannel: {self.name}", self._colors.channel_name))
 
@@ -444,13 +444,51 @@ class Channel():
             for conflict in item.get_conflicts():
 
                 # color format conflict string
-                name = conflict.name.parent / conflict.parse(conflict.name.name)
+                name = conflict.name.parent / conflict.parse()
 
                 if item.is_dir():
                     cols.add([colorize(f"[CD]", self._colors.conflict), name])
                 else:
                     cols.add([colorize(f"[CF]", self._colors.conflict), name])
         cols.show()
+
+    def format_df(self, prefix, name, color):
+        return colorize(prefix, color) + f" {name}"
+
+    def create_tree(self, df, node: TreeNode):
+        """ Create TreeNode structure, will be listed by list() """
+        path = df.link_path.relative_to(Path.home())
+        for p in reversed(path.parents):
+            if p == Path('.'):
+                continue
+            node = node.get_child(p.name)
+
+        color = self._colors.linked if df.check_symlink() else self._colors.unlinked
+
+        if df.is_encrypted:
+            if df.is_dir():
+                child = node.get_child(self.format_df('[ED]', df.name.name, color))
+                for conflict in df.get_conflicts():
+                    node.add_child(self.format_df('[CD] ', conflict.parse(), 'red'))
+            else:
+                child = node.get_child(self.format_df('[EF]', df.name.name, color))
+                for conflict in df.get_conflicts():
+                    node.add_child(self.format_df('[CF] ', conflict.parse(), 'red'))
+        else :
+            if df.is_dir():
+                node.get_child(self.format_df('[D] ', df.name.name, color))
+            else:
+                node.get_child(self.format_df('[F] ', df.name.name, color))
+
+    def list(self):
+        #self.list_flat()
+        root = TreeNode(f"channel: {self.name}")
+
+        for df in self.dotfiles:
+            self.create_tree(df, root)
+
+        root.display()
+        print()
 
     def link_all(self, force=False):
         """ Link all dotfiles in channel """

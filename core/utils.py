@@ -8,8 +8,10 @@ import hashlib
 import base64
 import tarfile
 import re
+from dataclasses import dataclass, field
 
 logger = logging.getLogger("microdot")
+
 
 CATEGORY_JUST = 5
 ACTION_JUST = 5
@@ -17,6 +19,10 @@ ACTION_JUST = 5
 # characters to use instead of the filsystem unsafe +/
 BASE_64_ALT_CHARS = "@-"
 
+TREE_JOINT = '├─ '
+TREE_END   = '└─ '
+TREE_PPREFIX = '│  '
+TREE_EPREFIX = '   '
 
 class Lock():
     """ Does lock things """
@@ -179,6 +185,72 @@ class Columnize():
     def show(self):
         for l in self.get_lines():
             print(" ".join(l))
+
+
+@dataclass
+class TreeNode():
+    _name: str
+    _parent: 'TreeNode' = None
+    _next: 'TreeNode'   = None
+    _children: list = field(default_factory=list)
+
+    def add_child(self, name: str):
+        node = TreeNode(name, _parent=self)
+
+        # connect sibling
+        if self._children:
+            self._children[-1]._next = node
+
+        self._children.append(node)
+        return node
+
+    def get_child(self, name: str):
+        """ Get or add child """
+        for child in self._children:
+            if child._name == name:
+                return child
+        return self.add_child(name)
+
+    def follow(self, node, string: str='') -> str:
+        """ Recursive follow tree back to root and find tree chars """
+        if not node:
+            return string
+
+        # return if node is root node
+        if node.is_root():
+            return string
+
+        if node._next:
+            string += TREE_PPREFIX[::-1]
+        else:
+            string += TREE_EPREFIX[::-1]
+
+        string = self.follow(node._parent, string)
+        return string
+
+    def is_root(self) -> bool:
+        return self._parent == None
+
+    def display(self):
+        prefix = self.follow(self._parent)[::-1]
+
+        if not self.is_root():
+            if self._next:
+                prefix += TREE_JOINT
+            else:
+                prefix += TREE_END
+
+        prefix = colorize(prefix, 'magenta')
+
+        if self.is_root():
+            name = colorize(self._name,  'blue')
+        else:
+            name = colorize(self._name,  'white')
+
+        print(f"{prefix}{name}")
+
+        for node in self._children:
+            node.display()
 
 
 def colorize(string, color):

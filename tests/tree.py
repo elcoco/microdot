@@ -19,8 +19,7 @@ class Node():
     _children: list = field(default_factory=list)
 
     def add_child(self, name):
-        node = Node(name,
-                    _parent = self)
+        node = Node(name, _parent=self)
 
         # connect siblings
         if self._children:
@@ -30,7 +29,7 @@ class Node():
         return node
 
     def follow(self, node, string=''):
-        """ Follow tree back to root and find tree chars """
+        """ Recursive follow tree back to root and find tree chars """
         if not node:
             return string
 
@@ -45,9 +44,6 @@ class Node():
 
         string = self.follow(node._parent, string)
         return string
-
-    def has_children(self):
-        return len(self._children)
 
     def display_tree(self):
         prefix = self.follow(self._parent)[::-1]

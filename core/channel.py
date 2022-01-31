@@ -325,11 +325,6 @@ class DotEncryptedBaseClass(DotBaseClass):
 
     def init(self, src):
         """ Move source path to dotfile location """
-
-        # create managed dir indicator file before encrypting
-        #if self.is_dir():
-        #    (self.link_path / SCAN_DIR_FILE).touch()
-
         self.encrypt(src, self._key)
         self.remove_path(src)
         debug(self.name, 'init', f'removed original path: {src}')

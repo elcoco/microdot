@@ -562,7 +562,7 @@ class Channel():
                 pass
 
     def search_children(self, path):
-        """ Find an ancestor of path that is already managed by microdot """
+        """ Find a child of path that is already managed by microdot """
         for df in self.dotfiles:
             try:
                 df.link_path.relative_to(path)

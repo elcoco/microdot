@@ -75,7 +75,8 @@ class TreeNode():
     _next: 'TreeNode'   = None
     _children: list = field(default_factory=list)
 
-    def add_child(self, name: str):
+    def add_child(self, name: str) -> 'TreeNode':
+        """ Create new node object and add to tree. """
         node = TreeNode(name, _parent=self)
 
         # connect sibling
@@ -85,7 +86,17 @@ class TreeNode():
         self._children.append(node)
         return node
 
-    def get_child(self, name: str):
+    def add_child_node(self, node) -> 'TreeNode':
+        """ Add node object to tree. """
+        # connect sibling
+        node._parent = self
+        if self._children:
+            self._children[-1]._next = node
+
+        self._children.append(node)
+        return node
+
+    def get_child(self, name: str) -> 'TreeNode':
         """ Get or add child """
         for child in self._children:
             if child._name == name:
@@ -101,25 +112,47 @@ class TreeNode():
         if node.is_root():
             return string
 
-        if node._next:
-            string += TREE_PPREFIX[::-1]
-        else:
+        if node.is_last():
             string += TREE_EPREFIX[::-1]
+        else:
+            string += TREE_PPREFIX[::-1]
 
         string = self.follow(node._parent, string)
         return string
 
     def is_root(self) -> bool:
-        return self._parent == None
+        return self._parent is None
 
-    def display(self, tree_color='magenta'):
+    def is_last(self) -> bool:
+        # if this is last node or all next nodes have empty name field
+        return self._next is None or not self.has_valid_children(self._next)
+
+    def is_empty(self) -> bool:
+        return not self._name
+
+    def has_valid_children(self, node):
+        """ Return True if any node next to $node is valid """
+        while True:
+            if not node.is_empty():
+                return True
+            if not node._next:
+                break
+            node = node._next
+
+    def display(self, tree_color='magenta') -> None:
         prefix = self.follow(self._parent)[::-1]
 
         if not self.is_root():
-            if self._next:
-                prefix += TREE_JOINT
+            if self.is_empty():
+                if self.is_last():
+                    prefix += TREE_EPREFIX
+                else:
+                    prefix += TREE_PPREFIX
             else:
-                prefix += TREE_END
+                if self.is_last():
+                    prefix += TREE_END
+                else:
+                    prefix += TREE_JOINT
 
         prefix = colorize(prefix, tree_color)
 
@@ -129,7 +162,7 @@ class TreeNode():
             node.display(tree_color=tree_color)
 
 
-def colorize(string, color):
+def colorize(string: str, color: str) -> str:
     colors = {}
     colors['black']    = '\033[0;30m'
     colors['bblack']   = '\033[1;30m'
@@ -151,7 +184,7 @@ def colorize(string, color):
     colors['default']    = '\033[0m'
     return colors[color] + str(string) + colors["reset"]
 
-def confirm(msg, assume_yes=False, canceled_msg=None):
+def confirm(msg, assume_yes: bool=False, canceled_msg=None):
     """ Let user confirm, display canceled_msg on deny """
     if assume_yes:
         return True

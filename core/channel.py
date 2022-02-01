@@ -421,7 +421,7 @@ class Channel():
             for conflict in df.get_conflicts():
                 node.add_child(conflict.parse())
 
-    def list(self):
+    def list(self, display=True):
         root = TreeNode(colorize(f"channel: {self.name}", state.colors.channel_name))
 
         dotfiles  =  [d for d in self.dotfiles if d.is_dir() and not d.is_encrypted]
@@ -432,8 +432,13 @@ class Channel():
         for df in dotfiles:
             self.add_tree_nodes(df, root)
 
-        root.display(tree_color=state.colors.tree)
-        print()
+        if not dotfiles:
+            root.add_child(colorize("Empty", "bred"))
+
+        if display:
+            root.display(tree_color=state.colors.tree)
+
+        return root
 
     def link_all(self, force=False):
         """ Link all dotfiles in channel """
@@ -638,3 +643,6 @@ def get_encrypted_dotfiles(linked=False, grouped=False):
 def update_encrypted_from_decrypted():
     for df in get_encrypted_dotfiles(linked=True):
         df.update()
+
+
+

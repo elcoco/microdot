@@ -2,75 +2,26 @@
 
 import sys
 from pathlib import Path
-from dataclasses import dataclass, field
-from typing import Optional
+
+sys.path.append('../microdot')
+
+from core.utils import TreeNode, colorize
 
 
-JOINT = '├── '
-END   = '└── '
-PPREFIX = '│   '
-EPREFIX = '    '
-
-@dataclass
-class Node():
-    _name: str
-    _parent: 'Node' = None
-    _next: 'Node'   = None
-    _children: list = field(default_factory=list)
-
-    def add_child(self, name):
-        node = Node(name, _parent=self)
-
-        # connect siblings
-        if self._children:
-            self._children[-1]._next = node
-
-        self._children.append(node)
-        return node
-
-    def follow(self, node, string=''):
-        """ Recursive follow tree back to root and find tree chars """
-        if not node:
-            return string
-
-        # return if node is root node
-        if not node._parent:
-            return string
-
-        if node._next:
-            string += PPREFIX[::-1]
-        else:
-            string += EPREFIX[::-1]
-
-        string = self.follow(node._parent, string)
-        return string
-
-    def display_tree(self):
-        prefix = self.follow(self._parent)[::-1]
-
-        # if node is not the root node
-        if self._parent:
-            if self._next:
-                prefix += JOINT
-            else:
-                prefix += END
-
-        print(f"{prefix}{self._name}")
-
-        for node in self._children:
-            node.display_tree()
-
-
-def search(path: Path, node: Node):
+def search(path: Path, node: TreeNode):
     """ Fill tree """
     if path.is_file():
-        node.add_child(f"{path.name}")
+        node.add_child(path.name)
     elif path.is_symlink():
+        node.add_child(colorize(f"{path.name} -> {path.resolve()}", 'bmagenta'))
+    elif path.is_fifo() or path.is_block_device() or path.is_char_device():
         node.add_child(f"{path.name}")
-    else:
-        d_node = node.add_child(f"{path.name}")
+    elif path.is_dir():
+        d_node = node.add_child(colorize(f"{path.name}/", 'bblue'))
         for p in path.iterdir():
             search(p, d_node)
+    else:
+        print("Unknown type:", path)
 
 
 if len(sys.argv) < 2:
@@ -78,7 +29,12 @@ if len(sys.argv) < 2:
     sys.exit()
 
 path = Path(sys.argv[1])
-root = Node(f"[ROOT] {path.name}")
-search(path, root)
-root.display_tree()
+root = TreeNode(f"[ROOT] {path.name}")
 
+try:
+    search(path, root)
+except PermissionError as e:
+    print(e)
+    sys.exit(1)
+
+root.display()

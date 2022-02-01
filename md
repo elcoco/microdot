@@ -13,6 +13,8 @@ from core.sync import Sync
 from core.utils import info, debug, die
 from core.merge import handle_conflict
 
+from core.utils import TreeNode, colorize
+
 logger = logging.getLogger("microdot")
 
 
@@ -185,9 +187,19 @@ class App():
                 handle_conflict(orig_df, conflict)
             except MicrodotError as e:
                 die(e)
+
         else:
-            for state.channel in get_channels(state):
-                state.channel.list()
+            root = TreeNode(colorize(state.core.dotfiles_dir, state.colors.channel_name))
+
+            for channel in get_channels(state):
+                root.add_child_node(channel.list(display=False))
+                root.add_child("")
+
+            print()
+            root.display(tree_color=state.colors.tree)
+            print()
+
+
 
         sys.exit(0)
 

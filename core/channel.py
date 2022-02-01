@@ -16,7 +16,7 @@ from core import CONFLICT_EXT, ENCRYPTED_DIR_EXT, ENCRYPTED_FILE_EXT, ENCRYPTED_
 from core import CONFLICT_FILE_EXT, CONFLICT_DIR_EXT, TIMESTAMP_FORMAT, DECRYPTED_DIR, SCAN_CHANNEL_BLACKLIST, SCAN_DIR_BLACKLIST
 from core import SCAN_DIR_FILE
 from core.utils import confirm, colorize, debug, info, get_hash, get_tar
-from core.utils import Columnize, TreeNode
+from core.utils import TreeNode
 
 from cryptography.fernet import Fernet
 import cryptography
@@ -40,13 +40,13 @@ class Conflict():
             raise MicrodotError(f"Failed to parse string, {e}")
 
         n = []
-        n.append(colorize(r.group(1), 'default'))
+        n.append(colorize(r.group(1), 'blue'))
         n.append(colorize(r.group(2), 'green'))
         n.append(colorize(r.group(3), 'magenta'))
         n.append(colorize(r.group(4), 'blue'))
         n.append(colorize(r.group(5), 'blue'))
         n.append(colorize(r.group(6), 'blue'))
-        return colorize('#', 'default').join(n)
+        return colorize("CONFLICT ",state.colors.conflict) + colorize('#', 'blue').join(n)
 
 
 class DotBaseClass():
@@ -401,94 +401,38 @@ class Channel():
         self.dotfiles = self.search_dotfiles(self._path)
         self._colors = state.colors
 
-    def list_flat(self):
-        """ Pretty print all dotfiles """
-        print(colorize(f"\nchannel: {self.name}", self._colors.channel_name))
-
-        encrypted =  [d for d in self.dotfiles if d.is_dir() and d.is_encrypted]
-        encrypted += [f for f in self.dotfiles if f.is_file() and f.is_encrypted]
-        items =  [d for d in self.dotfiles if d.is_dir() and not d.is_encrypted]
-        items += [f for f in self.dotfiles if f.is_file() and not f.is_encrypted]
-
-        if len(items) == 0 and len(encrypted) == 0:
-            print(colorize(f"No dotfiles yet!", 'red'))
-            return
-
-        cols = Columnize(tree=True, prefix_color='magenta')
-
-        for item in items:
-            color = self._colors.linked if item.check_symlink() else self._colors.unlinked
-
-            if item.is_dir():
-                cols.add([colorize(f"[D]", color), item.name])
-            else:
-                cols.add([colorize(f"[F]", color), item.name])
-
-        for item in encrypted:
-            color = self._colors.linked if item.check_symlink() else self._colors.unlinked
-            if item.is_dir():
-                cols.add([colorize(f"[ED]", color),
-                          item.name,
-                          colorize(item.hash, 'green'),
-                          colorize(f"{item.timestamp}", 'magenta')])
-            else:
-                cols.add([colorize(f"[EF]", color),
-                          item.name,
-                          colorize(item.hash, 'green'),
-                          colorize(f"{item.timestamp}", 'magenta')])
-
-        cols.show()
-
-        cols = Columnize(prefix='  ', prefix_color='red')
-        for item in encrypted:
-            for conflict in item.get_conflicts():
-
-                # color format conflict string
-                name = conflict.name.parent / conflict.parse()
-
-                if item.is_dir():
-                    cols.add([colorize(f"[CD]", self._colors.conflict), name])
-                else:
-                    cols.add([colorize(f"[CF]", self._colors.conflict), name])
-        cols.show()
-
     def format_df(self, prefix, name, color):
-        return colorize(prefix, color) + f" {name}"
+        return prefix +  colorize(name, color)
 
-    def create_tree(self, df, node: TreeNode):
+    def add_tree_nodes(self, df, node: TreeNode):
         """ Create TreeNode structure, will be listed by list() """
         # get or create all parent nodes
         path = df.link_path.relative_to(Path.home())
-        for p in reversed(path.parents):
-            if p == Path('.'):
-                continue
-            node = node.get_child(p.name)
+        for p in reversed(path.parents[:-1]):
+            node = node.get_child(colorize(p.name, state.colors.tree_dirs))
 
         # add dotfile/dir node
         color = self._colors.linked if df.check_symlink() else self._colors.unlinked
+        name = f"{df.name.name}/" if df.is_dir() else df.name.name
+        prefix = colorize('CRYPT ', state.colors.encrypted) if df.is_encrypted else ''
+        child = node.get_child(self.format_df(prefix, name, color))
+
         if df.is_encrypted:
-            if df.is_dir():
-                child = node.get_child(self.format_df('[ED]', df.name.name, color))
-                for conflict in df.get_conflicts():
-                    node.add_child(self.format_df('[CD] ', conflict.parse(), 'red'))
-            else:
-                child = node.get_child(self.format_df('[EF]', df.name.name, color))
-                for conflict in df.get_conflicts():
-                    node.add_child(self.format_df('[CF] ', conflict.parse(), 'red'))
-        else :
-            if df.is_dir():
-                node.get_child(self.format_df('[D] ', df.name.name, color))
-            else:
-                node.get_child(self.format_df('[F] ', df.name.name, color))
+            for conflict in df.get_conflicts():
+                node.add_child(conflict.parse())
 
     def list(self):
-        #self.list_flat()
-        root = TreeNode(f"channel: {self.name}")
+        root = TreeNode(colorize(f"channel: {self.name}", state.colors.channel_name))
 
-        for df in self.dotfiles:
-            self.create_tree(df, root)
+        dotfiles  =  [d for d in self.dotfiles if d.is_dir() and not d.is_encrypted]
+        dotfiles += [f for f in self.dotfiles if f.is_file() and not f.is_encrypted]
+        dotfiles += [d for d in self.dotfiles if d.is_dir() and d.is_encrypted]
+        dotfiles += [f for f in self.dotfiles if f.is_file() and f.is_encrypted]
 
-        root.display()
+        for df in dotfiles:
+            self.add_tree_nodes(df, root)
+
+        root.display(tree_color=state.colors.tree)
         print()
 
     def link_all(self, force=False):

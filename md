@@ -197,7 +197,6 @@ class App():
 
             print()
             root.display(tree_color=state.colors.tree)
-            print()
 
 
 

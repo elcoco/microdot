@@ -19,10 +19,10 @@ ACTION_JUST = 5
 # characters to use instead of the filsystem unsafe +/
 BASE_64_ALT_CHARS = "@-"
 
-TREE_JOINT = '├─ '
-TREE_END   = '└─ '
-TREE_PPREFIX = '│  '
-TREE_EPREFIX = '   '
+TREE_JOINT = '├── '
+TREE_END   = '└── '
+TREE_PPREFIX = '│   '
+TREE_EPREFIX = '    '
 
 class Lock():
     """ Does lock things """
@@ -70,6 +70,7 @@ class Lock():
 
 @dataclass
 class TreeNode():
+    """ Draws a nice tree """
     _name: str
     _parent: 'TreeNode' = None
     _next: 'TreeNode'   = None

@@ -10,10 +10,9 @@ from core import state, lock
 from core.channel import get_channels, get_channel
 from core.exceptions import MicrodotError
 from core.sync import Sync
-from core.utils import info, debug, die
+from core.utils import info, debug, die, colorize
 from core.merge import handle_conflict
-
-from core.utils import TreeNode, colorize
+from core.tree import TreeNode
 
 logger = logging.getLogger("microdot")
 

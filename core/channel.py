@@ -16,7 +16,7 @@ from core import CONFLICT_EXT, ENCRYPTED_DIR_EXT, ENCRYPTED_FILE_EXT, ENCRYPTED_
 from core import CONFLICT_FILE_EXT, CONFLICT_DIR_EXT, TIMESTAMP_FORMAT, DECRYPTED_DIR, SCAN_CHANNEL_BLACKLIST, SCAN_DIR_BLACKLIST
 from core import SCAN_DIR_FILE
 from core.utils import confirm, colorize, debug, info, get_hash, get_tar
-from core.utils import TreeNode
+from core.tree import TreeNode
 
 from cryptography.fernet import Fernet
 import cryptography

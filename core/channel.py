@@ -75,8 +75,11 @@ class DotBaseClass():
             if not self.path.exists():
                 self.link_path.unlink()
                 info("cleanup_link", "remove", f"orphan link found: {self.link_path}")
-            elif not self.link_path.resolve() == self.path:
-                info("cleanup_link", "remove", f"link doesn't point to data: {self.link_path}")
+            #elif not self.link_path.resolve() == self.path:
+            #    info("cleanup_link", "remove", f"link doesn't point to data: {self.link_path}")
+            #    self.link_path.unlink()
+            elif not self.link_path.resolve().exists():
+                info("cleanup_link", "remove", f"link doesn't point to existing data: {self.link_path}")
                 self.link_path.unlink()
 
     def check_symlink(self):
@@ -93,13 +96,13 @@ class DotBaseClass():
 
     def link(self, target=None, force=False):
         if self.check_symlink():
-            raise MDLinkError(f"Dotfile is not linked: {self.name}")
+            raise MDLinkError(f"Dotfile is already linked: {self.name}")
 
         link = self.link_path
 
         # NOTE: calls a function outside of class
         if (df := search_conflicting_dotfiles(self.link_path.absolute())):
-            raise MDConflictError(f"Path '{self.link_path}' conflicts with '{df.link_path}' in channel '{df.channel.name}'")
+            raise MDConflictError(f"Path conflicts with '{df.name}' in channel '{df.channel.name}'")
 
         if not link.parent.is_dir():
             link.parent.mkdir(parents=True)
@@ -487,7 +490,7 @@ class Channel():
             raise MDPathLocationError(f"Path should not be inside dotfiles dir: {path}")
 
         if (df := search_conflicting_dotfiles(path.absolute())):
-            raise MDConflictError(f"Path '{path}' conflicts with '{df.link_path}' in channel '{df.channel.name}'")
+            raise MDConflictError(f"Path conflicts with '{df.name}' in channel '{df.channel.name}'")
 
         if encrypted:
             if path.is_file():

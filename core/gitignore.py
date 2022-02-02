@@ -12,10 +12,6 @@ class Gitignore():
         self._lines = [ '*.py[cod]', '*.__pycache__/', '.gitignore', 'decrypted' ]
         self._path = dotfiles_dir / '.gitignore'
 
-    def add(self, line):
-        logger.debug(f"Adding {line} to .gitignore")
-        self._lines.append(str(line))
-
     def list(self):
         for i,line in enumerate(self._lines):
             debug('gitignore', 'list', f"{i}: {line}")
@@ -30,4 +26,4 @@ class Gitignore():
             self.read()
         self._path.write_text('\n'.join(self._lines))
         self.list()
-        debug('gitignore', 'write', self._path)
+        debug('gitignore', 'written', self._path)

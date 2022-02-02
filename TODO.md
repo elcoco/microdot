@@ -50,3 +50,4 @@
       so init() should check and link() should check  
 
 - [x] when init file, parent dirs are checked but child dirs should also be checked for conflicts
+- [ ] when linking, conflicting paths should be checked in other channels to prevent nested linking

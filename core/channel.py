@@ -63,7 +63,7 @@ class DotBaseClass():
         self.cleanup_link()
 
         if not self.path.parent.is_dir():
-            debug(self.name, 'mkdir', self.path.parent)
+            debug("__init__", 'mkdir', self.path.parent)
             self.path.parent.mkdir(parents=True)
 
     def cleanup_link(self):
@@ -71,9 +71,9 @@ class DotBaseClass():
         if self.link_path.is_symlink():
             if not self.path.exists():
                 self.link_path.unlink()
-                info("link_check", "remove", f"orphan link found: {self.link_path}")
+                info("cleanup_link", "remove", f"orphan link found: {self.link_path}")
             elif not self.link_path.resolve() == self.path:
-                info("link_check", "remove", f"link doesn't point to data: {self.link_path}")
+                info("cleanup_link", "remove", f"link doesn't point to data: {self.link_path}")
                 self.link_path.unlink()
 
     def check_symlink(self):
@@ -104,8 +104,8 @@ class DotBaseClass():
             link.unlink()
 
         if link.exists() and force:
-            logger.info(f"Path exists, using --force to overwrite: {link}")
             self.remove_path(link)
+            info("link", "removed", "Path exists, using --force to overwrite: {link}")
 
         if link.is_symlink():
             raise MicrodotError(f"Dotfile already linked: {link}")
@@ -114,7 +114,7 @@ class DotBaseClass():
             raise MicrodotError(f"Path exists: {link}")
 
         link.symlink_to(target)
-        debug(self.name, 'linked', f'{link} -> {target.name}')
+        debug("link", 'linked', f'{link} -> {target.name}')
         return True
     
     def unlink(self):
@@ -122,13 +122,13 @@ class DotBaseClass():
             raise MicrodotError(f"Dotfile is not linked: {self.name}")
 
         self.link_path.unlink()
-        debug(self.name, 'unlinked', self.link_path)
+        debug("unlink", 'unlinked', self.link_path)
         return True
 
     def init(self, src):
         """ Move source path to dotfile location """
         shutil.move(src, self.path)
-        debug(self.name, 'moved', f'{src} -> {self.path}')
+        debug("init", 'moved', f'{src} -> {self.path}')
         self.link()
 
         # create managed dir indicator file
@@ -199,12 +199,12 @@ class DotEncryptedBaseClass(DotBaseClass):
 
         # ensure decrypted dir exists
         if not self.path.parent.is_dir():
-            debug(self.name, 'mkdir', self.path.parent)
+            debug("__init__", 'mkdir', self.path.parent)
             self.path.parent.mkdir(parents=True)
 
         # ensure encrypted dir exists
         if self.encrypted_path and not self.encrypted_path.parent.is_dir():
-            debug(self.name, 'mkdir', self.encrypted_path.parent)
+            debug("__init__", 'mkdir', self.encrypted_path.parent)
             self.encrypted_path.parent.mkdir(parents=True)
 
     def get_conflicts(self):
@@ -256,7 +256,7 @@ class DotEncryptedBaseClass(DotBaseClass):
             src.unlink()
 
         self.encrypted_path.write_bytes(encrypted)
-        debug(self.name, 'encrypted', f'{src.name} -> {self.encrypted_path}')
+        debug("encrypt", 'encrypted', f'{src.name} -> {self.encrypted_path}')
 
     def decrypt(self, dest=None, src=None):
         """ Do some decryption here and write to dest path """
@@ -276,7 +276,7 @@ class DotEncryptedBaseClass(DotBaseClass):
             raise MicrodotError(f"Failed to decrypt {src}, invalid key.")
 
         dest.write_bytes(decrypted)
-        debug(self.name, 'decrypted', f'{src.name} -> {dest}')
+        debug("decrypt", 'decrypted', f'{src.name} -> {dest}')
 
     def link(self, force=False):
         self.decrypt()
@@ -289,7 +289,7 @@ class DotEncryptedBaseClass(DotBaseClass):
             return
         if not self.is_changed():
             return
-        info(self.name, 'changed', self.path)
+        info("update", 'changed', self.path)
 
         old_encrypted_path = self.encrypted_path
         self.encrypt(self.path, self._key, force=True)
@@ -297,7 +297,7 @@ class DotEncryptedBaseClass(DotBaseClass):
         old_encrypted_path.unlink()
         self.link()
 
-        info(self.name, 'updated', f'{self.name} -> {self.encrypted_path.name}')
+        info("update", 'updated', f'{self.name} -> {self.encrypted_path.name}')
 
     def is_changed(self):
         """ Indicate if decrypted dir has changed from encrypted file
@@ -321,13 +321,13 @@ class DotEncryptedBaseClass(DotBaseClass):
         if not DotBaseClass.unlink(self):
             return
         self.remove_path(self.path)
-        debug(self.name, 'removed', f'decrypted path: {self.path.name}')
+        debug("unlink", 'removed', f'decrypted path: {self.path.name}')
 
     def init(self, src):
         """ Move source path to dotfile location """
         self.encrypt(src, self._key)
         self.remove_path(src)
-        debug(self.name, 'init', f'removed original path: {src}')
+        debug("init", 'init', f'removed original path: {src}')
         self.link()
 
     def to_decrypted(self):
@@ -387,7 +387,7 @@ class DotDirEncrypted(DotEncryptedBaseClass):
 
         # cant use pathlib's replace because files need to be on same filesystem
         shutil.move((tmp_dir / self.name.name), dest)
-        debug(self.name, "moved", f"{tmp_dir/self.name.name} -> {dest}")
+        debug("decrypt", "moved", f"{tmp_dir/self.name.name} -> {dest}")
 
         tmp_file.unlink()
 
@@ -605,9 +605,8 @@ def get_channel(name, state, create=False, assume_yes=False):
             return
         try:
             path.mkdir(parents=True)
-            info("get_channel", "created_channel", name)
+            info("get_channel", "created", name)
         except PermissionError as e:
-            logger.error(f"Failed to create channel: {name}")
             raise MicrodotError("Failed to create channel: {name}")
 
     for channel in get_channels(state):

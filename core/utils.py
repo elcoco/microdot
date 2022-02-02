@@ -95,22 +95,16 @@ def confirm(msg, assume_yes: bool=False, canceled_msg=None):
 
 def info(category: str, action: str, msg: str):
     """ Display pretty messages """
-    category = str(category).ljust(CATEGORY_JUST)
     category = colorize(category, 'green')
-
-    action = action.ljust(ACTION_JUST)
     action = colorize(action, 'magenta')
-
-    msg = colorize(msg, 'white')
+    msg = colorize(msg, 'default')
     logger.info(f"{category} {action} {msg}")
 
 def debug(category: str, action: str, msg: str):
     """ Display pretty messages """
-    category = str(category).ljust(CATEGORY_JUST)
     category = colorize(category, 'green')
-    action = action.ljust(ACTION_JUST)
     action = colorize(action, 'magenta')
-    msg = colorize(msg, 'white')
+    msg = colorize(msg, 'default')
     logger.debug(f"{category} {action} {msg}")
 
 def die(msg, code=1):

@@ -12,7 +12,9 @@ sys.path.append('../microdot')
 from core.channel import get_channel
 from core import state
 from core.utils import info
-from core.exceptions import MicrodotError
+from core.exceptions import MicrodotError, MDConflictError, MDLinkError, MDEncryptionError
+from core.exceptions import MDDotNotFoundError, MDChannelNotFoundError, MDPathNotFoundError
+from core.exceptions import MDPathLocationError, MDPathExistsError
 from core.sync import Sync
 
 logger = logging.getLogger("microdot")
@@ -161,7 +163,7 @@ class TestLinkUnlink(TestBase):
         df_f2.unlink()
 
         # linking twice should raise an error
-        with self.assertRaises(MicrodotError):
+        with self.assertRaises(MDLinkError):
             df_d1.unlink()
             df_d2.unlink()
             df_f1.unlink()
@@ -189,7 +191,7 @@ class TestLinkUnlink(TestBase):
         df_f2.link()
 
         # linking twice should raise an error
-        with self.assertRaises(MicrodotError):
+        with self.assertRaises(MDLinkError):
             df_d1.link()
             df_d2.link()
             df_f1.link()
@@ -225,7 +227,7 @@ class TestShitInput(TestBase):
 
         # try to init an already existing file
         self.testfile1.write_text("second attempt")
-        with self.assertRaises(MicrodotError):
+        with self.assertRaises(MDConflictError):
             state.channel.init(self.testfile1, encrypted=False)
 
         # try to init a link
@@ -233,7 +235,7 @@ class TestShitInput(TestBase):
         l.symlink_to(self.testfile1)
         self.addCleanup(self.cleanup, l)
 
-        with self.assertRaises(MicrodotError):
+        with self.assertRaises(MDPathNotFoundError):
             state.channel.init(l, encrypted=False)
 
     def test_init_sanity_check(self):
@@ -242,7 +244,7 @@ class TestShitInput(TestBase):
         self.addCleanup(self.cleanup, p)
 
         # path not in homedir
-        with self.assertRaises(MicrodotError):
+        with self.assertRaises(MDPathLocationError):
             df = state.channel.init(p, encrypted=False)
 
         p2 = state.core.dotfiles_dir / 'xxxxxx.txt'
@@ -250,33 +252,37 @@ class TestShitInput(TestBase):
         self.addCleanup(self.cleanup, p2)
 
         # try to init a path inside an already managed dotfiles dir
-        with self.assertRaises(MicrodotError):
+        with self.assertRaises(MDPathLocationError):
             df = state.channel.init(p2, encrypted=False)
 
     def test_non_existing_things(self):
-        with self.subTest():
+        with self.subTest("Create non existing channel"):
             # check that non existing channel is created when requested
             state.channel = get_channel('non_existing', state, create=True, assume_yes=True)
             self.assertTrue((state.core.dotfiles_dir / 'non_existing').is_dir())
 
-        with self.subTest():
+        with self.subTest("Get non existing channel"):
+            with self.assertRaises(MDChannelNotFoundError):
+                get_channel("non_existing_channel", state)
+
+        with self.subTest("Get non existing dotfile"):
             # try to get non existing dotfile
-            with self.assertRaises(MicrodotError):
+            with self.assertRaises(MDDotNotFoundError):
                 state.channel.get_dotfile("non_existing")
 
-        with self.subTest():
+        with self.subTest("Get non existing encrypted dotfile"):
             # try to get non existing encrypted dotfile
-            with self.assertRaises(MicrodotError):
+            with self.assertRaises(MDDotNotFoundError):
                 state.channel.get_encrypted_dotfile("non_existing")
 
-        with self.subTest():
+        with self.subTest("Init non existing dotfile"):
             # try to init non existing files
-            with self.assertRaises(MicrodotError):
+            with self.assertRaises(MDPathNotFoundError):
                 state.channel.init(Path("non_existing"), encrypted=False)
 
-        with self.subTest():
+        with self.subTest("Init non existing encrypted dotfile"):
             # try to init non existing encrypted files
-            with self.assertRaises(MicrodotError):
+            with self.assertRaises(MDPathNotFoundError):
                 state.channel.init(Path("non_existing"), encrypted=True)
 
 
@@ -298,7 +304,7 @@ class TestEncryptDecrypt(TestBase):
         edf = state.channel.get_dotfile(df.name)
 
         # try to encrypt again, should not be possible
-        with self.assertRaises(MicrodotError):
+        with self.assertRaises(MDEncryptionError):
             edf.to_encrypted(state.encryption.key)
 
         # assert
@@ -311,6 +317,7 @@ class TestEncryptDecrypt(TestBase):
 
         # re-init channels/dotfiles
         state.channel = get_channel('common', state, create=True, assume_yes=True)
+
         ddf = state.channel.get_dotfile(df.name)
 
         # assert
@@ -336,7 +343,7 @@ class TestEncryptDecrypt(TestBase):
         edf = state.channel.get_dotfile(df.name)
 
         # try to encrypt again, should not be possible
-        with self.assertRaises(MicrodotError):
+        with self.assertRaises(MDEncryptionError):
             edf.to_encrypted(state.encryption.key)
 
         # assert
@@ -385,6 +392,112 @@ class TestInit(TestBase):
         self.assertTrue(self.testfile1.is_symlink())
         self.assertTrue(df.encrypted_path.is_file())
         self.assertTrue(self.testfile1.resolve() == df.path)
+
+
+class TestLink(TestBase):
+    def test_init_in_linked_parent(self):
+        dir1 = Path.home() / 'testlink_tmp'
+        dir1.mkdir()
+        dir2 = dir1 / 'nested'
+        dir2.mkdir()
+
+        self.addCleanup(self.cleanup, dir1)
+        self.addCleanup(self.cleanup, dir2)
+
+        channel = get_channel('bever', state, create=True, assume_yes=True)
+        channel.init(dir1, encrypted=True, link=True)
+
+        # reload channel
+        channel = get_channel('bever', state, create=True, assume_yes=True)
+        
+        with self.assertRaises(MDConflictError):
+            channel.init(dir2, encrypted=True, link=True)
+
+    def test_init_child_of_linked_parent_other_channel(self):
+        """ Try to init in parent dir of a linked dotfile in another channel """
+
+        # create first channel with initted dir1
+        dir1 = Path.home() / 'testlink_tmp'
+        dir1.mkdir()
+        self.addCleanup(self.cleanup, dir1)
+
+        channel1 = get_channel('bever', state, create=True, assume_yes=True)
+        channel1.init(dir1, encrypted=True, link=True)
+
+        # create second channel with initted dir2 that has a path inside dir1
+        dir2 = dir1 / 'nested'
+        dir2.mkdir(parents=True)
+
+        channel2 = get_channel('disko', state, create=True, assume_yes=True)
+
+        with self.assertRaises(MDConflictError) as msg:
+            channel2.init(dir2, encrypted=True, link=False)
+        logger.error(msg.exception)
+
+    def test_init_parent_of_linked_child_other_channel(self):
+        """ Try to init in child dir of a linked dotfile in another channel """
+
+        # create first channel with initted dir1
+        dir1 = Path.home() / 'testlink_tmp'
+        dir1.mkdir()
+        dir2 = dir1 / 'nested'
+        dir2.mkdir(parents=True)
+
+        self.addCleanup(self.cleanup, dir1)
+
+        channel1 = get_channel('bever', state, create=True, assume_yes=True)
+        channel1.init(dir2, encrypted=True, link=True)
+
+        channel2 = get_channel('disko', state, create=True, assume_yes=True)
+        with self.assertRaises(MDConflictError) as msg:
+            channel2.init(dir1, encrypted=True, link=True)
+        logger.error(msg.exception)
+
+    def test_link_nested(self):
+        """ Try to link dotfiles from different channels with conflicting paths"""
+
+        # SETUP ##########################
+
+        # create first channel with initted dir1
+        dir1 = Path.home() / 'testlink_tmp'
+        dir2 = dir1 / 'nested'
+        dir1.mkdir(parents=True)
+        self.addCleanup(self.cleanup, dir1)
+
+        channel1 = get_channel('bever', state, create=True, assume_yes=True)
+        channel2 = get_channel('disko', state, create=True, assume_yes=True)
+
+        channel1.init(dir1, encrypted=True, link=False)
+
+        dir2.mkdir(parents=True)
+        channel2.init(dir2, encrypted=True, link=False)
+
+        # remove dirs so we can link them
+        shutil.rmtree(dir1, ignore_errors=False, onerror=None)
+
+        # reload channels
+        channel1 = get_channel('bever', state)
+        channel2 = get_channel('disko', state)
+
+        dotfile1 = channel1.get_dotfile('testlink_tmp')
+        dotfile2 = channel2.get_dotfile('testlink_tmp/nested')
+
+        # END SETUP#######################
+
+        dotfile1.link()
+        with self.subTest("Try to link child into parent"):
+            with self.assertRaises(MDConflictError) as msg:
+                dotfile2.link()
+            logger.error(msg.exception)
+
+        dotfile1.unlink()
+
+        dotfile2.link()
+        with self.subTest("Try to link parent into child"):
+            with self.assertRaises(MDConflictError) as msg:
+                dotfile1.link()
+            logger.error(msg.exception)
+
 
 
 if __name__ == '__main__':

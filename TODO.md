@@ -46,8 +46,6 @@
 
 - [x] make dotfile classes a bit more logical
 
-- [ ] the parent is already managed by microdot error should only warn when the dotfile is linked  
-      so init() should check and link() should check  
-
 - [x] when init file, parent dirs are checked but child dirs should also be checked for conflicts
-- [ ] when linking, conflicting paths should be checked in other channels to prevent nested linking
+- [x] when linking, conflicting paths should be checked in other channels to prevent nested linking
+- [x] Exceptions should be more specific, testing is impossible when we can not catch specific errors

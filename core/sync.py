@@ -8,7 +8,7 @@ from typing import ClassVar
 
 from core import lock
 from core import CONFLICT_EXT, GIT_COMMIT_MSG
-from core.exceptions import MicrodotError
+from core.exceptions import MicrodotError, MDGitRepoError
 from core.channel import update_encrypted_from_decrypted, get_encrypted_dotfiles
 from core.logic import SyncAlgorithm
 from core.utils import debug, info, get_hash
@@ -19,8 +19,6 @@ from git import Repo
 logger = logging.getLogger("microdot")
 
 
-class GitException(Exception):
-    pass
 
 
 @dataclass
@@ -76,7 +74,8 @@ class Git():
         try:
             self._repo = Repo(path)
         except git.exc.InvalidGitRepositoryError as e:
-            raise GitException("Invalid Git repository")
+            # TODO needs unittest
+            raise MDGitRepoError(f"Invalid Git repository: {path}")
 
     def parse_diff(self, item):
         """ Parse diff object and construct a message """
@@ -186,7 +185,7 @@ class Sync(SyncAlgorithm):
     def init_git(self):
         try:
             self.g = Git(self.dotfiles_dir)
-        except GitException as e:
+        except MDGitRepoError as e:
             raise MicrodotError(e)
 
     def pre_sync(self):

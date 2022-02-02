@@ -9,7 +9,7 @@ from typing import Optional
 from filecmp import dircmp
 
 from core.utils import debug, info, get_hash, get_tar, confirm
-from core.exceptions import MicrodotError
+from core.exceptions import MDMergeError
 from core.channel import Conflict, DotBaseClass
 
 logger = logging.getLogger("microdot")
@@ -39,7 +39,7 @@ class MergeBaseClass():
             result = subprocess.run(cmd, check=True)
         except subprocess.CalledProcessError as e:
             logger.error(e)
-            raise MicrodotError(f"Failed to execute editor: {' '.join(cmd)}")
+            raise MDMergeError(f"Failed to execute editor: {' '.join(cmd)}")
 
         return md5 != get_hash(path)
 
@@ -78,7 +78,7 @@ class MergeFile(MergeBaseClass):
 
         if result.returncode < 0:
             cleanup([tmp_empty.unlink(), merge_file.unlink()])
-            raise MicrodotError(f"Failed to merge: {' '.join(cmd)}\n{result.stdout.decode()}\n{result.stderr.decode()}")
+            raise MDMergeError(f"Failed to merge: {' '.join(cmd)}\n{result.stdout.decode()}\n{result.stderr.decode()}")
 
         tmp_empty.unlink()
         return merge_file
@@ -149,13 +149,13 @@ class MergeDir(MergeBaseClass):
             try:
                 ret.append(Path(line.split()[index]))
             except IndexError:
-                raise MicrodotError(f"Failed to parse line: {line}")
+                raise MDMergeError(f"Failed to parse line: {line}")
 
         for path in ret:
             try:
                 path.relative_to(relative_to)
             except ValueError:
-                raise MicrodotError(f"Abort: unsafe path {path}, not relative to {relative_to}")
+                raise MDMergeError(f"Abort: unsafe path {path}, not relative to {relative_to}")
 
         return ret
 

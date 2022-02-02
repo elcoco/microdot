@@ -10,7 +10,9 @@ import datetime
 import re
 from dataclasses import dataclass
 
-from core.exceptions import MicrodotError
+from core.exceptions import MicrodotError, MDConflictError, MDLinkError, MDEncryptionError
+from core.exceptions import MDDotNotFoundError, MDChannelNotFoundError, MDPathNotFoundError
+from core.exceptions import MDPathLocationError, MDPathExistsError, MDPermissionError, MDParseError
 from core import state
 from core import CONFLICT_EXT, ENCRYPTED_DIR_EXT, ENCRYPTED_FILE_EXT, ENCRYPTED_DIR_FORMAT, ENCRYPTED_FILE_FORMAT
 from core import CONFLICT_FILE_EXT, CONFLICT_DIR_EXT, TIMESTAMP_FORMAT, DECRYPTED_DIR, SCAN_CHANNEL_BLACKLIST, SCAN_DIR_BLACKLIST
@@ -35,9 +37,10 @@ class Conflict():
         try:
             r = re.search(r"(.+)#(.+)#([0-9]+)#([A-Z])#([A-Z]+)#([A-Z]+)", self.name.name)
         except re.error as e:
-            raise MicrodotError(f"Failed to parse string, {e}")
+            # TODO needs unittest
+            raise MDParseError(f"Failed to parse string, {e}")
         except TypeError as e:
-            raise MicrodotError(f"Failed to parse string, {e}")
+            raise MDParseError(f"Failed to parse string, {e}")
 
         n = []
         n.append(colorize(r.group(1), 'blue'))
@@ -90,9 +93,13 @@ class DotBaseClass():
 
     def link(self, target=None, force=False):
         if self.check_symlink():
-            raise MicrodotError(f"Dotfile is not linked: {self.name}")
+            raise MDLinkError(f"Dotfile is not linked: {self.name}")
 
         link = self.link_path
+
+        # NOTE: calls a function outside of class
+        if (df := search_conflicting_dotfiles(self.link_path.absolute())):
+            raise MDConflictError(f"Path '{self.link_path}' conflicts with '{df.link_path}' in channel '{df.channel.name}'")
 
         if not link.parent.is_dir():
             link.parent.mkdir(parents=True)
@@ -108,10 +115,10 @@ class DotBaseClass():
             info("link", "removed", "Path exists, using --force to overwrite: {link}")
 
         if link.is_symlink():
-            raise MicrodotError(f"Dotfile already linked: {link}")
+            raise MDLinkError(f"Dotfile already linked: {link}")
 
         if link.exists():
-            raise MicrodotError(f"Path exists: {link}")
+            raise MDLinkError(f"Path exists at link location: {link}")
 
         link.symlink_to(target)
         debug("link", 'linked', f'{link} -> {target.name}')
@@ -119,17 +126,19 @@ class DotBaseClass():
     
     def unlink(self):
         if not self.check_symlink():
-            raise MicrodotError(f"Dotfile is not linked: {self.name}")
+            raise MDLinkError(f"Dotfile is not linked: {self.name}")
 
         self.link_path.unlink()
         debug("unlink", 'unlinked', self.link_path)
         return True
 
-    def init(self, src):
+    def init(self, src, link=True):
         """ Move source path to dotfile location """
         shutil.move(src, self.path)
         debug("init", 'moved', f'{src} -> {self.path}')
-        self.link()
+
+        if link:
+            self.link()
 
         # create managed dir indicator file
         if self.is_dir():
@@ -146,7 +155,7 @@ class DotBaseClass():
         """ Encrypt an unencrypted dotfile """
         # TODO raises error because self.path doesn't exist
         if self.is_encrypted:
-            raise MicrodotError(f"Dotfile is already encrypted: {self.name}")
+            raise MDEncryptionError(f"Dotfile is already encrypted: {self.name}")
 
         if (was_linked := self.check_symlink()):
             self.unlink()
@@ -187,7 +196,8 @@ class DotEncryptedBaseClass(DotBaseClass):
 
                 self.timestamp = datetime.datetime.utcnow()
             except ValueError:
-                raise MicrodotError(f"Failed to parse path: {path}")
+                # TODO needs unittest
+                raise MDParseError(f"Failed to parse path: {path}")
 
         self.channel = channel
         self.link_path = Path.home() / self.name
@@ -246,7 +256,7 @@ class DotEncryptedBaseClass(DotBaseClass):
             if force:
                 self.remove_path(self.encrypted_path)
             else:
-                raise MicrodotError(f"Encrypted file exists in channel: {self.encrypted_path}")
+                raise MDPathExistsError(f"Encrypted file exists in channel: {self.encrypted_path}")
 
         fernet = Fernet(key)
         encrypted = fernet.encrypt(src.read_bytes())
@@ -273,7 +283,8 @@ class DotEncryptedBaseClass(DotBaseClass):
             fernet = Fernet(self._key)
             decrypted = fernet.decrypt(src.read_bytes())
         except cryptography.fernet.InvalidToken:
-            raise MicrodotError(f"Failed to decrypt {src}, invalid key.")
+            # TODO needs unittest
+            raise MDEncryptionError(f"Failed to decrypt {src}, invalid key.")
 
         dest.write_bytes(decrypted)
         debug("decrypt", 'decrypted', f'{src.name} -> {dest}')
@@ -323,17 +334,19 @@ class DotEncryptedBaseClass(DotBaseClass):
         self.remove_path(self.path)
         debug("unlink", 'removed', f'decrypted path: {self.path.name}')
 
-    def init(self, src):
+    def init(self, src, link=True):
         """ Move source path to dotfile location """
         self.encrypt(src, self._key)
         self.remove_path(src)
         debug("init", 'init', f'removed original path: {src}')
-        self.link()
+
+        if link:
+            self.link()
 
     def to_decrypted(self):
         """ Convert encrypted dotfile to decrypted dotfile """
         if not self.is_encrypted:
-            raise MicrodotError(f"Dotfile is already encrypted: {self.name}")
+            raise MDEncryptionError(f"Dotfile is already encrypted: {self.name}")
 
         if (was_linked := self.check_symlink()):
             self.unlink()
@@ -461,23 +474,20 @@ class Channel():
             dotfile.unlink()
             info("unlink_all", "unlinked", dotfile.name)
 
-    def init(self, path: Path, encrypted: bool=False) -> DotBaseClass:
+    def init(self, path: Path, encrypted: bool=False, link: bool=True) -> DotBaseClass:
         """ Start using a dotfile
             Copy dotfile to channel directory and create symlink. """
 
         try:
             src = self._path / path.absolute().relative_to(Path.home())
         except ValueError:
-            raise MicrodotError(f"Path is not relative to homedir: {path}")
-
-        if (ret := self.search_parents(path.absolute())):
-            raise MicrodotError(f"A parent of this path is already managed by microdot: {ret}")
-
-        if (ret := self.search_children(path.absolute())):
-            raise MicrodotError(f"A child of this path is already managed by microdot: {ret}")
+            raise MDPathLocationError(f"Path is not in {Path.home()}: {path}")
 
         if self.is_child_of(path, [self._path.parent]):
-            raise MicrodotError(f"Path should not be inside dotfiles dir: {path}")
+            raise MDPathLocationError(f"Path should not be inside dotfiles dir: {path}")
+
+        if (df := search_conflicting_dotfiles(path.absolute())):
+            raise MDConflictError(f"Path '{path}' conflicts with '{df.link_path}' in channel '{df.channel.name}'")
 
         if encrypted:
             if path.is_file():
@@ -485,27 +495,45 @@ class Channel():
             elif path.is_dir():
                 dotfile = DotDirEncrypted(src, self._path, self._key)
             else:
-                raise MicrodotError(f"Path is not a file or directory: {path}")
+                raise MDPathNotFoundError(f"Path is not a file or directory: {path}")
         else:
             if path.is_file() or path.is_dir():
                 dotfile = DotBaseClass(src, self._path)
             else:
-                raise MicrodotError(f"Path is not a file or directory: {path}")
+                raise MDPathNotFoundError(f"Path is not a file or directory: {path}")
 
         # raise error if dotfile already exists
         if self.dotfile_exists(dotfile.name):
-            raise MicrodotError(f"Dotfile already managed: {dotfile.name}")
+            raise MDConflictError(f"Dotfile already managed: {dotfile.name}")
 
-        # TODO: after orphan cleanup, the file may be removed
         if not (path.is_file() or path.is_dir()):
-            raise MicrodotError(f"Source path is not a file or directory: {path}")
+            raise MDPathNotFoundError(f"Source path is not a file or directory: {path}")
 
-        if path.is_symlink():
-            raise MicrodotError(f"Source path is a symlink: {path}")
-
-        dotfile.init(path)
+        dotfile.init(path, link=link)
 
         return dotfile
+
+    def is_conflict(self, path: Path):
+        """ Check if path conflicts with other dotfile in this channel.
+            Returns dotfile if:
+                - dotfile is linked
+                - path is in a parent path of another dotfile
+                - path is in a child path of another dotfile
+        """
+        for df in self.dotfiles:
+            try:
+                df.link_path.relative_to(path)
+                if df.check_symlink():
+                    return df
+            except ValueError:
+                pass
+
+            try:
+                path.relative_to(df.link_path)
+                if df.check_symlink():
+                    return df
+            except ValueError:
+                pass
 
     def scan_dir(self, path):
         """ Recursive find paths to dotfiles/dirs.
@@ -542,45 +570,27 @@ class Channel():
         for df in self.dotfiles:
             if str(df.name) == str(name):
                 return df
-        raise MicrodotError(f"Dotfile not found: {name}")
+        raise MDDotNotFoundError(f"Dotfile not found: {name}")
 
     def get_encrypted_dotfile(self, name):
         """ Get an encrypted dotfile object by filename """
         for df in self.dotfiles:
             if df.is_encrypted and str(df.name) == str(name):
                 return df
-        raise MicrodotError(f"Encrypted dotfile not found: {name}")
+        raise MDDotNotFoundError(f"Encrypted dotfile not found: {name}")
 
     def dotfile_exists(self, name: str) -> bool:
         try:
             return self.get_dotfile(name)
-        except MicrodotError:
+        except MDDotNotFoundError:
             pass
-
-    def search_parents(self, path):
-        """ Find an ancestor of path that is already managed by microdot """
-        for df in self.dotfiles:
-            try:
-                path.relative_to(df.link_path)
-                return df.link_path
-            except ValueError:
-                pass
-
-    def search_children(self, path):
-        """ Find a child of path that is already managed by microdot """
-        for df in self.dotfiles:
-            try:
-                df.link_path.relative_to(path)
-                return df.link_path
-            except ValueError:
-                pass
 
     def is_child_of(self, child: Path, parents: list) -> bool:
         """ Check if one of the paths is a parent of child path """
-        for d in parents:
+        for parent in parents:
             try:
-                child.relative_to(d)
-                return d
+                child.relative_to(parent)
+                return parent
             except ValueError:
                 pass
 
@@ -599,7 +609,7 @@ def get_channel(name, state, create=False, assume_yes=False):
 
     if not path.is_dir():
         if not create:
-            raise MicrodotError(f"Channel {name} not found")
+            raise MDChannelNotFoundError(f"Channel {name} not found")
 
         if not confirm(f"Channel {name} doesn't exist, would you like to create it?", assume_yes=assume_yes):
             return
@@ -607,13 +617,11 @@ def get_channel(name, state, create=False, assume_yes=False):
             path.mkdir(parents=True)
             info("get_channel", "created", name)
         except PermissionError as e:
-            raise MicrodotError("Failed to create channel: {name}")
+            raise MDPermissionError("Insufficient permissions to create channel: {name}")
 
     for channel in get_channels(state):
         if channel.name == name:
             return channel
-
-    raise MicrodotError(f"This should be unreachable, failed to find channel: {name}")
 
 # TODO below should be part of channel class??
 def get_encrypted_dotfiles(linked=False, grouped=False):
@@ -643,5 +651,13 @@ def update_encrypted_from_decrypted():
     for df in get_encrypted_dotfiles(linked=True):
         df.update()
 
+def search_conflicting_dotfiles(path: Path):
+    """ Search other channels for conflicted paths.
+        WARNING: uses a function not in this class.
+                 Need to fix this later 
+    """
+    for channel in get_channels(state):
+        if (df := channel.is_conflict(path)):
+            return df
 
 

@@ -8,7 +8,7 @@ from pathlib import Path
 from core.gitignore import Gitignore
 from core import state, lock
 from core.channel import get_channels, get_channel
-from core.exceptions import MicrodotError
+from core.exceptions import MicrodotException
 from core.sync import Sync
 from core.utils import info, debug, die, colorize
 from core.merge import handle_conflict
@@ -70,10 +70,10 @@ class App():
             sys.exit(0)
 
         if args.encrypt and not args.init:
-            raise MicrodotError("Use --encrypt together with --init")
+            raise MicrodotException("Use --encrypt together with --init")
 
         if args.use_git and not (args.sync or args.watch):
-            raise MicrodotError("Use --use_git together with --sync or --watch")
+            raise MicrodotException("Use --use_git together with --sync or --watch")
 
         if args.debug:
             logger.setLevel(logging.DEBUG)
@@ -90,7 +90,7 @@ class App():
     def setup(self):
         try:
             self.parse_args(state)
-        except MicrodotError as e:
+        except MicrodotException as e:
             die(e)
 
         # make sure no decrypted files are committed to git
@@ -103,13 +103,13 @@ class App():
         if state.do_link_all:
             try:
                 state.channel.link_all(force=state.do_force)
-            except MicrodotError as e:
+            except MicrodotException as e:
                 die(e)
 
         elif state.do_unlink_all:
             try:
                 state.channel.unlink_all()
-            except MicrodotError as e:
+            except MicrodotException as e:
                 die(e)
 
         elif state.do_link:
@@ -117,7 +117,7 @@ class App():
                 dotfile = state.channel.get_dotfile(state.do_link)
                 dotfile.link(state.do_force)
                 info("main", "linked", f"{dotfile.link_path} -> {dotfile.path}")
-            except MicrodotError as e:
+            except MicrodotException as e:
                 die(e)
 
         elif state.do_unlink:
@@ -125,7 +125,7 @@ class App():
                 dotfile = state.channel.get_dotfile(state.do_unlink)
                 dotfile.unlink()
                 info("main", "unlinked", f"{dotfile.path}")
-            except MicrodotError as e:
+            except MicrodotException as e:
                 die(e)
 
         elif state.do_to_encrypted:
@@ -133,7 +133,7 @@ class App():
                 dotfile = state.channel.get_dotfile(state.do_to_encrypted)
                 dotfile.to_encrypted(state.encryption.key)
                 info("main", "encrypted", f"{dotfile.path}")
-            except MicrodotError as e:
+            except MicrodotException as e:
                 die(e)
 
         elif state.do_to_decrypted:
@@ -141,14 +141,14 @@ class App():
                 dotfile = state.channel.get_dotfile(state.do_to_decrypted)
                 dotfile.to_decrypted()
                 info("main", "decrypted", f"{dotfile.path}")
-            except MicrodotError as e:
+            except MicrodotException as e:
                 die(e)
 
         elif state.do_init:
             try:
                 state.channel.init(Path(state.do_init), encrypted=state.do_encrypt)
                 info("main", "init", f"{state.do_init}")
-            except MicrodotError as e:
+            except MicrodotException as e:
                 die(e)
 
         elif state.do_sync:
@@ -159,7 +159,7 @@ class App():
                          use_git=state.do_use_git)
                 with lock:
                     s.sync()
-            except MicrodotError as e:
+            except MicrodotException as e:
                 die(e)
 
         elif state.do_watch:
@@ -169,7 +169,7 @@ class App():
                          state.notifications.error_interval,
                          use_git=state.do_use_git)
                 s.watch_repo()
-            except MicrodotError as e:
+            except MicrodotException as e:
                 die(e)
 
         elif state.do_solve:
@@ -184,7 +184,7 @@ class App():
 
                 #conflict_df = state.channel.get_conflict(conflict_path)
                 handle_conflict(orig_df, conflict)
-            except MicrodotError as e:
+            except MicrodotException as e:
                 die(e)
 
         else:

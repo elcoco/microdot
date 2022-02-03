@@ -76,9 +76,10 @@ _get_dotfiles() {
     if [[ -z $channel ]] ; then
         _values "channels" $($MD_CMD --get-dotfiles)
     else
+        # TODO need to call twice because result is escaped, i don't know bash! ;)
         dotfiles=$($MD_CMD --channel "$channel" --get-dotfiles)
         if [[ ! -z $dotfiles ]] ; then
-            _values "channels" $dotfiles
+            _values "channels" $($MD_CMD --channel "$channel" --get-dotfiles)
         fi
     fi
 }
@@ -95,7 +96,7 @@ function _get_conflicts {
     else
         conflicts=$($MD_CMD --channel "$channel" --get-conflicts)
         if [[ ! -z $conflicts ]] ; then
-            _values "conflicts" "$conflicts"
+            _values "conflicts" $($MD_CMD --channel "$channel" --get-conflicts)
         fi
     fi
 }

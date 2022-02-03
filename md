@@ -75,7 +75,7 @@ class App():
 
         parser.add_argument('-g', '--use-git',        help='use together with --sync|--watch to sync repo with git', action='store_true')
         parser.add_argument('-e', '--encrypt',        help='use together with --init to encrypt file', action='store_true')
-        parser.add_argument('-c', '--channel',        help='specify the channel to use', metavar='NAME', default=None)
+        parser.add_argument('-c', '--channel',        help='specify the channel to use', metavar='NAME', default=state.core.default_channel)
         parser.add_argument('-d', '--dotfiles-dir',   help='specify the dotfiles directory', metavar='DIR', default=None)
         parser.add_argument('-y', '--assume-yes',     help='assume yes to questions', action='store_true')
         parser.add_argument('-f', '--force',          help='force overwrite files/dirs', action='store_true')
@@ -122,8 +122,6 @@ class App():
         self.completion(args)
 
         # get or create channel
-        if not args.channel:
-            state.core.default_channel = 'common'
         state.channel = get_channel(args.channel, state, create=True, assume_yes=True)
 
     def setup(self):

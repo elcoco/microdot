@@ -40,7 +40,11 @@ Currently under development and will probably break every now and then...
 
 ### Start using (init) a dotfile:
 
+    # not specifying a channel defaults to the "common" channel
     $ md --init ~/.config/dotfile.txt
+
+    # init file and place in my_hostname channel
+    $ md --channel my_hostname --init ~/.config/dotfile.txt
 
 Same, but use encryption this time:
 
@@ -149,7 +153,7 @@ Alternatively you can add the completion directory to your $fpath by adding the 
 
 ## Note on directory structure
 To properly link the dotfiles and dirs, microdot  needs to know how to interpret the directory structure.  
-The following directories can be seen as:  
+The directory structure below can be seen as either:  
 one dotdir: `.config`  
 or:  
 two dotdirs: `.config/dotdir1` and `.config/dotdir2`
@@ -167,24 +171,24 @@ This file is automatically placed in the directory when added to microdot.
     └── .config
         ├── dir1
         ├── dir2
-        ├── .microdot <--
+        ├── .microdot <-- special file
         └── testfile1.txt
 
-In this case the `.config` directory is treated as one dotdir.  
+    # In this case, the `.config` directory is treated as one dotdir.  
+
 
     dotfiles
     └── .config
         ├── dir1
-        │   └── .microdot <--
+        │   └── .microdot <-- special file
         ├── dir2
-        │   └── .microdot <--
+        │   └── .microdot <-- special file
         └── testfile1.txt
 
-In this case microdot treats the stucture as:
-
-- dotdir: `.config/dir1`
-- dotdir: `.config/dir2`
-- dotfile: `.config/testfile1.txt`
+    # In this case microdot treats the stucture as:
+    - dotdir:  .config/dir1
+    - dotdir:  .config/dir2
+    - dotfile: .config/testfile1.txt
 
 
 ## Sync algorithm

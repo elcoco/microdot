@@ -1,0 +1,85 @@
+#compdef _microdot md
+
+MD_CMD="md"
+
+# https://github.com/zsh-users/zsh-completions/blob/master/zsh-completions-howto.org#getting-started
+
+function _microdot {
+    # -OPT[DESCRIPTION]:MESSAGE:ACTION
+    #
+    # choose a,b or c
+    # {-o,--opt}'[choose]:arg:(a b c)' \
+    #
+    # run _get_dotfiles function to look for arguments
+    # {-x,--to-decrypted}'[encrypt dotfile]:DOTFILE:_get_dotfiles' \
+    #
+    # set $state to option, in this case: --unlink
+    # {-u,--unlink}'[unlink dotfile]:DOTFILE:->args' \
+
+    # choose only one of these opts
+    excl="-l --link -u --unlink -i --init -e --to-encrypted -x --to-decrypted -s --sync -w --watch"
+
+    # these are not allowed together with git flag
+    excl_git="-l --link -u --unlink -i --init -e --to-encrypted -x --to-decrypted"
+
+    # these are not allowed to use git flag
+    no_git="-g --use-git"
+
+    # -C sets context vars like $line and $state
+    # -s allows single letter commands
+    _arguments -C \
+                "($no_git $excl)"{-i,--init}"[init dotfile]:DOTFILE:_files" \
+                "($no_git $excl)"{-l,--link}"[link dotfile]:DOTFILE:_get_dotfiles" \
+                "($no_git $excl)"{-u,--unlink}"[unlink dotfile]:DOTFILE:_get_dotfiles" \
+                "($no_git $excl)"{-x,--to-decrypted}"[encrypt dotfile]:DOTFILE:_get_dotfiles" \
+                "($no_git $excl)"{-e,--to-encrypted}"[decrypt dotfile]:DOTFILE:_get_dotfiles" \
+                "(-c --channel)"{-c,--channel}'[use channel]:CHANNEL:_get_channels' \
+                "(-d --dotfiles-dir)"{-d,--dotfiles-dir}'[specify dotfiles dir]:DIR:_directories' \
+                "(-f --force)"{-f,--force}'[use the force]' \
+                "(-D --debug)"{-D,--debug}'[enable debugging]' \
+                "($excl)"{-s,--sync}'[sync]' \
+                "($excl)"{-w,--watch}'[watch]' \
+                "($excl_git -g --use-git)"{-g,--use-git}'[use git]' \
+                "-h --help)"{-h,--help}'[help]' 
+
+    #case "$state" in
+    #    cmds)
+    #        _arguments -s $($MD_CMD --get-opts)
+    #        ;;
+    #    args)
+
+    #        case $words[-2] in
+    #            (-l|--link)
+    #                _get_dotfiles
+    #                ;;
+    #            (-c|--channel)
+    #                _get_channels
+    #                ;;
+    #        esac
+    #        ;;
+    #esac
+    return 0
+}
+
+_get_dotfiles() {
+    # if channel is specified, show only dotfiles for this channel
+    for (( i=0 ; i<${#words[@]} ; i++ )) ; do
+        if [[ "${words[i]}" == '--channel' || "${words[i]}" == '-c' ]] ; then
+            channel="${words[i+1]}"
+        fi
+    done
+    
+    if [[ -z $channel ]] ; then
+        _values $($MD_CMD --get-dotfiles)
+    else
+        dotfiles=$($MD_CMD --channel "$channel" --get-dotfiles)
+        if [[ ! -z $dotfiles ]] ; then
+            _values "channels" $dotfiles
+        fi
+    fi
+
+}
+
+function _get_channels {
+    _values "channels" $($MD_CMD --get-channels)
+}

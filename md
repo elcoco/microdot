@@ -19,7 +19,7 @@ logger = logging.getLogger("microdot")
 
 class App():
     def completion(self, args):
-        # used for ZSH command line completion. output arguments and exit
+        """ Used for ZSH command line completion. output arguments and exit """
         if args.get_channels:
             print(" ".join([c.name for c in get_channels(state)]))
 

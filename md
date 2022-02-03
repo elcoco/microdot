@@ -8,7 +8,7 @@ from pathlib import Path
 from core.gitignore import Gitignore
 from core import state, lock
 from core.channel import get_channels, get_channel
-from core.exceptions import MicrodotException
+from core.exceptions import MicrodotException, MDChannelNotFoundError
 from core.sync import Sync
 from core.utils import info, debug, die, colorize
 from core.merge import handle_conflict
@@ -18,6 +18,32 @@ logger = logging.getLogger("microdot")
 
 
 class App():
+    def completion(self, args):
+        # used for ZSH command line completion. output arguments and exit
+        if args.get_opts:
+            print(" ".join(("--{}".format(opt.replace("_", "-")) for opt in vars(args))))
+
+        elif args.get_channels:
+            print(" ".join([c.name for c in get_channels(state)]))
+
+        elif args.get_dotfiles:
+            dotfiles = []
+            if args.channel:
+                try:
+                    c = get_channel(args.channel, state)
+                except MDChannelNotFoundError:
+                    sys.exit(0)
+
+                dotfiles = [df.name for df in c.search_dotfiles()]
+            else:
+                for c in get_channels(state):
+                    dotfiles += [df.name for df in c.search_dotfiles()]
+            print(" ".join(f"{p}" for p in dotfiles))
+
+        else:
+            return
+        sys.exit(0)
+
     def parse_args(self, state):
         parser = argparse.ArgumentParser(prog='microdot', usage='%(prog)s [OPTIONS]', description='Gotta manage them dotfiles',
                 formatter_class=lambda prog: argparse.HelpFormatter(prog,max_help_position=42))
@@ -37,7 +63,7 @@ class App():
 
         parser.add_argument('-g', '--use-git',        help='use together with --sync|--watch to sync repo with git', action='store_true')
         parser.add_argument('-e', '--encrypt',        help='use together with --init to encrypt file', action='store_true')
-        parser.add_argument('-c', '--channel',        help='specify the channel to use', metavar='NAME', default=state.core.default_channel)
+        parser.add_argument('-c', '--channel',        help='specify the channel to use', metavar='NAME', default=None)
         parser.add_argument('-d', '--dotfiles-dir',   help='specify the dotfiles directory', metavar='DIR', default=None)
         parser.add_argument('-y', '--assume-yes',     help='assume yes to questions', action='store_true')
         parser.add_argument('-f', '--force',          help='force overwrite files/dirs', action='store_true')
@@ -45,6 +71,8 @@ class App():
 
         # for use in command completion script, suppress visibility in help output
         parser.add_argument('--get-opts',             help=argparse.SUPPRESS, action="store_true")
+        parser.add_argument('--get-dotfiles',         help=argparse.SUPPRESS, action="store_true")
+        parser.add_argument('--get-channels',         help=argparse.SUPPRESS, action="store_true")
 
         args = parser.parse_args()
 
@@ -64,11 +92,6 @@ class App():
         state.do_to_encrypted   = args.to_encrypted
         state.do_to_decrypted   = args.to_decrypted
 
-        # used for ZSH command line completion. output arguments and exit
-        if args.get_opts:
-            print(" ".join(("--{}".format(opt.replace("_", "-")) for opt in vars(args))))
-            sys.exit(0)
-
         if args.encrypt and not args.init:
             raise MicrodotException("Use --encrypt together with --init")
 
@@ -83,8 +106,12 @@ class App():
             state.core.dotfiles_dir = Path(args.dotfiles_dir)
         else:
             state.core.dotfiles_dir = Path(state.core.dotfiles_dir)
-        
+
+        self.completion(args)
+
         # get or create channel
+        if not args.channel:
+            state.core.default_channel = 'common'
         state.channel = get_channel(args.channel, state, create=True, assume_yes=True)
 
     def setup(self):

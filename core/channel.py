@@ -414,7 +414,7 @@ class Channel():
         self._key = state.encryption.key
         self._path = path
         self.name = path.name
-        self.dotfiles = self.search_dotfiles(self._path)
+        self.dotfiles = self.search_dotfiles()
         self._colors = state.colors
 
     def format_df(self, prefix, name, color):
@@ -554,10 +554,10 @@ class Channel():
                 paths.append(p)
         return paths
 
-    def search_dotfiles(self, directory: Path) -> list:
+    def search_dotfiles(self) -> list:
         """ Search channel for dotfile/dirs """
         items = []
-        for path in self.scan_dir(directory):
+        for path in self.scan_dir(self._path):
             if path.name.endswith(CONFLICT_EXT):
                 continue
             elif path.name.endswith(ENCRYPTED_DIR_EXT):

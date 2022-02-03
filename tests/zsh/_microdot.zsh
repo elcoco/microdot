@@ -1,12 +1,12 @@
+#compdef _microdot md
 
-#compdef ytmdl
-
-__ytmdl() {
+function _microdot {
+    echo 'bever'
     local curcontext="$curcontext" cur_word
     typeset -A opt_args
 
     cur_word=$words[CURRENT]
-    type_list=`ytmdl --get-opts`
+    type_list=`md --get-opts`
 
     # Only perform completion if the current word starts with a dash ('-'),
     # meaning that the user is trying to complete an option.
@@ -20,4 +20,3 @@ __ytmdl() {
     return 0
 }
 
-__ytmdl

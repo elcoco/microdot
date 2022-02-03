@@ -49,3 +49,5 @@
 - [x] when init file, parent dirs are checked but child dirs should also be checked for conflicts
 - [x] when linking, conflicting paths should be checked in other channels to prevent nested linking
 - [x] Exceptions should be more specific, testing is impossible when we can not catch specific errors
+- [ ] Find a way to detect if a dotfiles_dir is an actual dotfiles_dir
+- [ ] ZSH/bash completion of dotfile names

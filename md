@@ -24,32 +24,21 @@ class App():
             print(" ".join([c.name for c in get_channels(state)]))
 
         elif args.get_dotfiles:
-            dotfiles = []
-            if args.channel:
-                try:
-                    c = get_channel(args.channel, state)
-                except MDChannelNotFoundError:
-                    sys.exit(0)
-
-                dotfiles = [df.name for df in c.search_dotfiles()]
-            else:
-                for c in get_channels(state):
-                    dotfiles += [df.name for df in c.search_dotfiles()]
-            print(" ".join(f"{p}" for p in dotfiles))
+            try:
+                channel = get_channel(args.channel, state)
+            except MDChannelNotFoundError:
+                sys.exit(0)
+            print(" ".join(f"{df.name}" for df in channel.search_dotfiles()))
 
         elif args.get_conflicts:
-            if args.channel:
-                try:
-                    channels = [get_channel(args.channel, state)]
-                except MDChannelNotFoundError:
-                    sys.exit(0)
-            else:
-                channels = get_channels(state)
+            try:
+                channel = get_channel(args.channel, state)
+            except MDChannelNotFoundError:
+                sys.exit(0)
 
             conflicts = []
-            for c in channels:
-                for df in [df for df in c.search_dotfiles() if df.is_encrypted]:
-                    conflicts += df.get_conflicts()
+            for df in [df for df in channel.search_dotfiles() if df.is_encrypted]:
+                conflicts += df.get_conflicts()
             print(" ".join(f"{c.name}" for c in conflicts))
 
         else:

@@ -20,10 +20,7 @@ logger = logging.getLogger("microdot")
 class App():
     def completion(self, args):
         # used for ZSH command line completion. output arguments and exit
-        if args.get_opts:
-            print(" ".join(("--{}".format(opt.replace("_", "-")) for opt in vars(args))))
-
-        elif args.get_channels:
+        if args.get_channels:
             print(" ".join([c.name for c in get_channels(state)]))
 
         elif args.get_dotfiles:
@@ -39,6 +36,21 @@ class App():
                 for c in get_channels(state):
                     dotfiles += [df.name for df in c.search_dotfiles()]
             print(" ".join(f"{p}" for p in dotfiles))
+
+        elif args.get_conflicts:
+            if args.channel:
+                try:
+                    channels = [get_channel(args.channel, state)]
+                except MDChannelNotFoundError:
+                    sys.exit(0)
+            else:
+                channels = get_channels(state)
+
+            conflicts = []
+            for c in channels:
+                for df in [df for df in c.search_dotfiles() if df.is_encrypted]:
+                    conflicts += df.get_conflicts()
+            print(" ".join(f"{c.name}" for c in conflicts))
 
         else:
             return
@@ -70,9 +82,9 @@ class App():
         parser.add_argument('-D', '--debug',          help='enable debugging', action='store_true')
 
         # for use in command completion script, suppress visibility in help output
-        parser.add_argument('--get-opts',             help=argparse.SUPPRESS, action="store_true")
         parser.add_argument('--get-dotfiles',         help=argparse.SUPPRESS, action="store_true")
         parser.add_argument('--get-channels',         help=argparse.SUPPRESS, action="store_true")
+        parser.add_argument('--get-conflicts',        help=argparse.SUPPRESS, action="store_true")
 
         args = parser.parse_args()
 

@@ -17,7 +17,7 @@ function _microdot {
     # {-u,--unlink}'[unlink dotfile]:DOTFILE:->args' \
 
     # choose only one of these opts
-    excl="-l --link -u --unlink -i --init -e --to-encrypted -x --to-decrypted -s --sync -w --watch"
+    excl="-l --link -u --unlink -i --init -e --to-encrypted -x --to-decrypted -s --sync -w --watch -C --solve-conflict"
 
     # these are not allowed together with git flag
     excl_git="-l --link -u --unlink -i --init -e --to-encrypted -x --to-decrypted"
@@ -33,7 +33,8 @@ function _microdot {
                 "($no_git $excl)"{-u,--unlink}"[unlink dotfile]:DOTFILE:_get_dotfiles" \
                 "($no_git $excl)"{-x,--to-decrypted}"[encrypt dotfile]:DOTFILE:_get_dotfiles" \
                 "($no_git $excl)"{-e,--to-encrypted}"[decrypt dotfile]:DOTFILE:_get_dotfiles" \
-                "(-c --channel)"{-c,--channel}'[use channel]:CHANNEL:_get_channels' \
+                "($no_git $excl)"{-C,--solve-conflict}"[solve conflict]:CONFLICT:_get_conflicts" \
+                "(-c --channel)"{-c,--channel}'[specify channel]:CHANNEL:_get_channels' \
                 "(-d --dotfiles-dir)"{-d,--dotfiles-dir}'[specify dotfiles dir]:DIR:_directories' \
                 "(-f --force)"{-f,--force}'[use the force]' \
                 "(-D --debug)"{-D,--debug}'[enable debugging]' \
@@ -61,25 +62,40 @@ function _microdot {
     return 0
 }
 
-_get_dotfiles() {
-    # if channel is specified, show only dotfiles for this channel
+function get_channel {
+    # Return channel if --channel is specified
     for (( i=0 ; i<${#words[@]} ; i++ )) ; do
         if [[ "${words[i]}" == '--channel' || "${words[i]}" == '-c' ]] ; then
-            channel="${words[i+1]}"
+            echo "${words[i+1]}"
         fi
     done
-    
+}
+
+_get_dotfiles() {
+    channel=$(get_channel)
     if [[ -z $channel ]] ; then
-        _values $($MD_CMD --get-dotfiles)
+        _values "channels" $($MD_CMD --get-dotfiles)
     else
         dotfiles=$($MD_CMD --channel "$channel" --get-dotfiles)
         if [[ ! -z $dotfiles ]] ; then
             _values "channels" $dotfiles
         fi
     fi
-
 }
 
 function _get_channels {
     _values "channels" $($MD_CMD --get-channels)
+}
+
+function _get_conflicts {
+    channel=$(get_channel)
+    
+    if [[ -z $channel ]] ; then
+        _values "conflicts" $($MD_CMD --get-conflicts)
+    else
+        conflicts=$($MD_CMD --channel "$channel" --get-conflicts)
+        if [[ ! -z $conflicts ]] ; then
+            _values "conflicts" "$conflicts"
+        fi
+    fi
 }

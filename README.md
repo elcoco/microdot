@@ -134,6 +134,19 @@ Microdot can help to solve the conflict:
 
     $ md --solve-conflict .config/dotfile.txt#dXQ3o9K1#20220121181309#F#CRYPT#CONFLICT
 
+## ZSH command completion
+A completion file is located in the repository at: `completion/zsh/_microdot`.  
+To use this file, you have to copy the file to a directory in your $fpath.  
+On my system the completion files are found at:
+
+    /usr/share/zsh/site-functions/*
+
+Alternatively you can add the completion directory to your $fpath by adding the following line to your `~/.zshrc`:
+
+    # edit path to point to the location of the completion dir
+    fpath=(~/path/to/repo/completion/zsh $fpath)
+
+
 ## Note on directory structure
 To properly link the dotfiles and dirs, microdot  needs to know how to interpret the directory structure.  
 The following directories can be seen as:  

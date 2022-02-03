@@ -38,7 +38,7 @@ Currently under development and will probably break every now and then...
       -f, --force                             force overwrite files/dirs
       -D, --debug                             enable debugging
 
-### Start using (initiate) a dotfile:
+### Start using (init) a dotfile:
 
     $ md --init ~/.config/dotfile.txt
 
@@ -135,19 +135,43 @@ Microdot can help to solve the conflict:
     $ md --solve-conflict .config/dotfile.txt#dXQ3o9K1#20220121181309#F#CRYPT#CONFLICT
 
 ## Note on directory structure
-Microdot needs to know which directory is a dotfiles dir and which is a subdirectory to look for other dotfiles/dirs.
+To properly link the dotfiles and dirs, microdot  needs to know how to interpret the directory structure.  
+The following directories can be seen as:  
+one dotdir: `.config`  
+or:  
+two dotdirs: `.config/dotdir1` and `.config/dotdir2`
 
-    # could be interpreted as a dotdir called .config or two dotdirs .config/dotdir1 and .config/dotdir2
-    .config/dotdir1
-    .config/dotdir2
+    dotfiles
+    └── .config
+        ├── dir1
+        ├── dir2
+        └── testfile1.txt
 
-I don't want to keep lists of dotfiles/dirs because that would only work when dotfiles are always managed with microdot.  
-In reality users want to be able to manually delete and change dirs.
-To solve this issue microdot places an indicator file (.microdot) in the parent of the dotfiles dir.
+To make the distinction, microdot places a special file.  
+This file is automatically placed in the directory when added to microdot.  
 
-    .config/.microdot
+    dotfiles
+    └── .config
+        ├── dir1
+        ├── dir2
+        ├── .microdot <--
+        └── testfile1.txt
 
-This would indicate that the .config directory is a directory that contains other dotfiles/dirs.  
+In this case the `.config` directory is treated as one dotdir.  
+
+    dotfiles
+    └── .config
+        ├── dir1
+        │   └── .microdot <--
+        ├── dir2
+        │   └── .microdot <--
+        └── testfile1.txt
+
+In this case microdot treats the stucture as:
+
+- dotdir: `.config/dir1`
+- dotdir: `.config/dir2`
+- dotfile: `.config/testfile1.txt`
 
 
 ## Sync algorithm

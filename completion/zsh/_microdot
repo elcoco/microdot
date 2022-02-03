@@ -40,7 +40,7 @@ function _microdot {
                 "($excl)"{-s,--sync}'[sync]' \
                 "($excl)"{-w,--watch}'[watch]' \
                 "($excl_git -g --use-git)"{-g,--use-git}'[use git]' \
-                "-h --help)"{-h,--help}'[help]' 
+                "(-h --help)"{-h,--help}'[help]' 
 
     #case "$state" in
     #    cmds)

@@ -30,6 +30,20 @@ class App():
                 sys.exit(0)
             print(" ".join(f"{df.name}" for df in channel.search_dotfiles()))
 
+        elif args.get_encrypted_dotfiles:
+            try:
+                channel = get_channel(args.channel, state)
+            except MDChannelNotFoundError:
+                sys.exit(0)
+            print(" ".join(f"{df.name}" for df in channel.search_dotfiles() if df.is_encrypted))
+
+        elif args.get_unencrypted_dotfiles:
+            try:
+                channel = get_channel(args.channel, state)
+            except MDChannelNotFoundError:
+                sys.exit(0)
+            print(" ".join(f"{df.name}" for df in channel.search_dotfiles() if not df.is_encrypted))
+
         elif args.get_conflicts:
             try:
                 channel = get_channel(args.channel, state)
@@ -71,9 +85,11 @@ class App():
         parser.add_argument('-D', '--debug',          help='enable debugging', action='store_true')
 
         # for use in command completion script, suppress visibility in help output
-        parser.add_argument('--get-dotfiles',         help=argparse.SUPPRESS, action="store_true")
-        parser.add_argument('--get-channels',         help=argparse.SUPPRESS, action="store_true")
-        parser.add_argument('--get-conflicts',        help=argparse.SUPPRESS, action="store_true")
+        parser.add_argument('--get-dotfiles',             help=argparse.SUPPRESS, action="store_true")
+        parser.add_argument('--get-encrypted-dotfiles',   help=argparse.SUPPRESS, action="store_true")
+        parser.add_argument('--get-unencrypted-dotfiles', help=argparse.SUPPRESS, action="store_true")
+        parser.add_argument('--get-channels',             help=argparse.SUPPRESS, action="store_true")
+        parser.add_argument('--get-conflicts',            help=argparse.SUPPRESS, action="store_true")
 
         args = parser.parse_args()
 

@@ -50,4 +50,5 @@
 - [x] when linking, conflicting paths should be checked in other channels to prevent nested linking
 - [x] Exceptions should be more specific, testing is impossible when we can not catch specific errors
 - [ ] Find a way to detect if a dotfiles_dir is an actual dotfiles_dir
-- [ ] ZSH/bash completion of dotfile names
+- [x] ZSH/bash completion of dotfile names
+- [x] ZSH completion for -x and -E should only show encrypten/decrypted files

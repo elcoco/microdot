@@ -15,32 +15,53 @@ function _microdot {
     #
     # set $state to option, in this case: --unlink
     # {-u,--unlink}'[unlink dotfile]:DOTFILE:->args' \
+    help="-h --help"
+    link="-l --link"
+    link_all="-L --link-all"
+    unlink="-u --unlink"
+    unlink_all="-U --unlink-all"
+    init="-i --init"
+    to_decrypted="-x --to-decrypted"
+    to_encrypted="-E --to-encrypted"
+    sync="-s --sync"
+    watch="-w --watch"
+    git="-g --use-git"
+    solve_conflict="-C --solve-conflict"
+    encrypt="-e --encrypt"
+    channel="-c --channel"
+    dotfiles_dir="-d --dotfiles-dir"
+    assume_yes="-y --assume-yes"
+    force="-f --force"
+    debug="-D --debug"
 
-    # choose only one of these opts
-    excl="-l --link -u --unlink -i --init -e --to-encrypted -x --to-decrypted -s --sync -w --watch -C --solve-conflict"
+    # these are mutually exclusive
+    excl="$link $unlink $link_all $unlink_all $init $to_encrypted $to_decrypted $sync $watch $solve_conflict"
 
-    # these are not allowed together with git flag
-    excl_git="-l --link -u --unlink -i --init -e --to-encrypted -x --to-decrypted"
+    # only watch and sync can use git
+    only_git="$link $unlink $link_all $unlink_all $init $to_encrypted $to_decrypted $solve_conflict"
 
-    # these are not allowed to use git flag
-    no_git="-g --use-git"
+    # only init can use --encrypt
+    only_init="$link $unlink $link_all $unlink_all $to_encrypted $to_decrypted $sync $watch $solve_conflict"
 
     # -C sets context vars like $line and $state
     # -s allows single letter commands
     _arguments -C \
-                "($no_git $excl)"{-i,--init}"[init dotfile]:DOTFILE:_files" \
-                "($no_git $excl)"{-l,--link}"[link dotfile]:DOTFILE:_get_dotfiles" \
-                "($no_git $excl)"{-u,--unlink}"[unlink dotfile]:DOTFILE:_get_dotfiles" \
-                "($no_git $excl)"{-x,--to-decrypted}"[encrypt dotfile]:DOTFILE:_get_dotfiles" \
-                "($no_git $excl)"{-e,--to-encrypted}"[decrypt dotfile]:DOTFILE:_get_dotfiles" \
-                "($no_git $excl)"{-C,--solve-conflict}"[solve conflict]:CONFLICT:_get_conflicts" \
+                "($git $excl)"{-i,--init}"[init dotfile]:DOTFILE:_files" \
+                "($encrypt $git $excl)"{-l,--link}"[link dotfile]:DOTFILE:_get_dotfiles" \
+                "($encrypt $git $excl)"{-u,--unlink}"[unlink dotfile]:DOTFILE:_get_dotfiles" \
+                "($encrypt $git $excl)"{-L,--link-all}"[link all dotfiles in channel]" \
+                "($encrypt $git $excl)"{-U,--unlink-all}"[unlink all dotfiles in channel]" \
+                "($encrypt $git $excl)"{-x,--to-decrypted}"[encrypt dotfile]:DOTFILE:_get_encrypted_dotfiles" \
+                "($encrypt $git $excl)"{-E,--to-encrypted}"[decrypt dotfile]:DOTFILE:_get_unencrypted_dotfiles" \
+                "($encrypt $git $excl)"{-C,--solve-conflict}"[solve conflict]:CONFLICT:_get_conflicts" \
                 "(-c --channel)"{-c,--channel}'[specify channel]:CHANNEL:_get_channels' \
                 "(-d --dotfiles-dir)"{-d,--dotfiles-dir}'[specify dotfiles dir]:DIR:_directories' \
                 "(-f --force)"{-f,--force}'[use the force]' \
+                "($only_init $git $encrypt)"{-e,--encrypt}'[use encryption]' \
                 "(-D --debug)"{-D,--debug}'[enable debugging]' \
-                "($excl)"{-s,--sync}'[sync]' \
-                "($excl)"{-w,--watch}'[watch]' \
-                "($excl_git -g --use-git)"{-g,--use-git}'[use git]' \
+                "($encrypt $excl)"{-s,--sync}'[sync]' \
+                "($encrypt $excl)"{-w,--watch}'[watch]' \
+                "($encrypt $only_git -g --use-git)"{-g,--use-git}'[use git]' \
                 "(-h --help)"{-h,--help}'[help]' 
 
     #case "$state" in
@@ -83,6 +104,31 @@ _get_dotfiles() {
         fi
     fi
 }
+
+_get_encrypted_dotfiles() {
+    channel=$(get_channel)
+    if [[ -z $channel ]] ; then
+        _values "channels" $($MD_CMD --get-encrypted-dotfiles)
+    else
+        dotfiles=$($MD_CMD --channel "$channel" --get-encrypted-dotfiles)
+        if [[ ! -z $dotfiles ]] ; then
+            _values "channels" $($MD_CMD --channel "$channel" --get-encrypted-dotfiles)
+        fi
+    fi
+}
+
+_get_unencrypted_dotfiles() {
+    channel=$(get_channel)
+    if [[ -z $channel ]] ; then
+        _values "channels" $($MD_CMD --get-unencrypted-dotfiles)
+    else
+        dotfiles=$($MD_CMD --channel "$channel" --get-unencrypted-dotfiles)
+        if [[ ! -z $dotfiles ]] ; then
+            _values "channels" $($MD_CMD --channel "$channel" --get-unencrypted-dotfiles)
+        fi
+    fi
+}
+
 
 function _get_channels {
     _values "channels" $($MD_CMD --get-channels)

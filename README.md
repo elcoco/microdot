@@ -1,4 +1,4 @@
-# Microdot :: a simple dotfiles manager
+# Microdot :: a colorful dotfiles manager
 
 ![screenhost.png](screenshot.png)
 

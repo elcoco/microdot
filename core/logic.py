@@ -89,7 +89,7 @@ class SyncAlgorithm(LastSyncIndex):
                     logger.error(f"Dont know what to do with this path: {decrypted_path}")
 
                 self.remove(encrypted_path)
-                info("check_removed", "rmlist", decrypted_path)
+                debug("check_removed", "rmlist", decrypted_path)
 
     def a_is_new(self, a, b):
         if not self.in_list(a) and not self.exists(b):

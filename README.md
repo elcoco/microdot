@@ -1,6 +1,6 @@
 # Microdot :: a simple dotfiles manager
 
-Currently under development and will probably break every now and then...
+![screenhost.png](screenshot.png)
 
 ## Features
 - **Channels:** Dotfiles are organized in channels. You can keep channels with sets of dotfiles for separate computers. Or keep common sets of dotfiles that are shared between computers.  

@@ -3,7 +3,7 @@
 ![screenhost.png](screenshot.png)
 
 ## Features
-- **Channels:** Dotfiles are organized in channels. You can keep channels with sets of dotfiles for separate computers. Or keep common sets of dotfiles that are shared between computers.  
+- **Channels:** Dotfiles are organized in channels. You can keep channels with sets of dotfiles for separate computers. Or keep sets of common dotfiles that are shared between computers.  
 - **Encryption:** Dotfiles can be encrypted individually. An optional daemon can watch the unencrypted dotfile for changes and automatically keep the encrypted file up to date.
 - **Git sync:** The daemon can optionally sync to a git repo to keep all your computers in sync.
 - **Conflict resolution:** If a sync conflict occurs between encrypted files, microdot helps you to merge the files/dirs together.

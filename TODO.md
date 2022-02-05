@@ -53,3 +53,4 @@
 - [x] ZSH/bash completion of dotfile names
 - [x] ZSH completion for -x and -E should only show encrypten/decrypted files
 - [ ] Add color to ZSH completion script values
+- [ ] Make sync interval a commandline option

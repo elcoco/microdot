@@ -1,8 +1,6 @@
 # Microdot :: a colorful dotfiles manager
 
-<img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" />
-
-![screenhost.png](screenshot.png)
+![screenshot2.png](screenshot2.png)
 
 ## Features
 - **Channels:** Dotfiles are organized in channels. You can keep channels with sets of dotfiles for separate computers. Or keep sets of common dotfiles that are shared between computers.  

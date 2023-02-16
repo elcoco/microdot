@@ -10,7 +10,7 @@ from core import state, lock
 from core.channel import get_channels, get_channel
 from core.exceptions import MicrodotException, MDChannelNotFoundError
 from core.sync import Sync
-from core.utils import info, debug, die, colorize
+from core.utils import info, debug, die, colorize, get_git_remote
 from core.merge import handle_conflict
 from core.tree import TreeNode
 
@@ -230,6 +230,8 @@ class App():
                 die(e)
 
         else:
+            print(colorize("Remote:", state.colors.channel_name), get_git_remote(state.core.dotfiles_dir))
+
             root = TreeNode(colorize(state.core.dotfiles_dir, state.colors.channel_name))
 
             for channel in get_channels(state):
@@ -238,7 +240,6 @@ class App():
 
             print()
             root.display(tree_color=state.colors.tree)
-
 
 
         sys.exit(0)

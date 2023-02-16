@@ -86,7 +86,7 @@ class DotBaseClass():
         # check if link links to src
         if not self.link_path.is_symlink():
             return
-        return self.link_path.resolve() == self.path
+        return self.link_path.resolve() == self.path.absolute()
 
     def is_dir(self):
         return self.path.is_dir()

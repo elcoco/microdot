@@ -19,8 +19,6 @@ from git import Repo
 logger = logging.getLogger("microdot")
 
 
-
-
 @dataclass
 class Message():
     """ Message can be returned by Git() """

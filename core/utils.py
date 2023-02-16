@@ -9,6 +9,9 @@ import base64
 import tarfile
 import re
 
+import git
+from git import Repo
+
 logger = logging.getLogger("microdot")
 
 
@@ -134,3 +137,9 @@ def get_hash(path, n=8):
     md5.update(path.name.encode())
     get_rec_hash(path, md5)
     return base64.b64encode(md5.digest(), altchars=BASE_64_ALT_CHARS.encode()).decode()[:n]
+
+def get_git_remote(path: Path) -> str:
+    try:
+        return Repo(path).remotes.origin.url
+    except git.exc.InvalidGitRepositoryError:
+        return None

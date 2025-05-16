@@ -27,7 +27,7 @@ class Message():
     body: str = ""
     urgency: str = "normal"
     messages: ClassVar[list] = []
-    time: int = 20000
+    time: int = 10
 
     def __post_init__(self):
         self.dt = datetime.datetime.utcnow()

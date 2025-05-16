@@ -25,18 +25,18 @@ class Message():
     sender: str
     summary: str
     body: str = ""
-    urgency: str = "normal"
+    urgency: str = "low"
     messages: ClassVar[list] = []
-    time: int = 10
+    expire_sec: int = 10
 
     def __post_init__(self):
         self.dt = datetime.datetime.utcnow()
 
     def is_error(self):
-        return self.urgency == "critical"
+        return self.urgency == "normal"
 
     def check_skip(self, seconds):
-        """ Skip message under some conditions """
+        """ Surpress error messages util {seconds} have passed since last message """
         if not self.is_error():
             return False
 
@@ -49,20 +49,21 @@ class Message():
         if not m.is_error():
             return False
 
-        if (self.dt - m.dt).total_seconds() < seconds:
-            return True
+        return (self.dt - m.dt).total_seconds() <= seconds
+        
 
     def notify(self, error_interval=None):
         if error_interval and self.check_skip(error_interval):
+            debug("message", "notify", f"Skip notification: {self.summary}")
             return
 
         self.messages.append(self)
 
         Popen(["notify-send",
                "--app-name=microdot",
-               f"--expire-time={self.time}",
+               f"--expire-time={self.expire_sec * 1000}",
                f"--urgency={self.urgency}",
-               self.summary,
+               f"Microdot: {self.summary}",
                self.body])
 
 
@@ -126,7 +127,7 @@ class Git():
             pinfo = origin.push()[0]
         except git.exc.GitCommandError as e:
             logger.error(e)
-            return Message("push", "Failed to push changes", e.stderr.strip(), urgency="critical")
+            return Message("push", "Failed to push changes", e.stderr.strip(), urgency="normal")
 
         if pinfo.flags & pinfo.ERROR:
             if pinfo.flags & pinfo.REJECTED:
@@ -138,7 +139,7 @@ class Git():
             else:
                 msg = "Push failed"
             logger.error(msg)
-            return Message("push", msg, urgency="critical")
+            return Message("push", msg)
 
         info('git', 'push', f'{len(commits)} commit(s): {pinfo.summary.strip()}')
         return Message("push", f"Pushed {len(commits)} commit(s)")
@@ -161,7 +162,7 @@ class Git():
         except git.exc.GitCommandError as e:
             logger.error("Failed to pull changes")
             logger.error(e.stderr.strip())
-            return Message("pull", "Failed to pull changes", e.stderr.strip(), urgency="critical")
+            return Message("pull", "Failed to pull changes", e.stderr.strip(), urgency="normal")
 
 
 class Sync(SyncAlgorithm):

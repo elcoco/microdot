@@ -79,9 +79,9 @@ state.colors.encrypted       = 'bmagenta'
 state.colors.tree            = 'bblue'
 state.colors.tree_dirs       = 'bwhite'
 state.git                    = {}
-state.git.interval           = 15
+state.git.interval           = 30
 state.notifications          = {}
-state.notifications.error_interval = 60
+state.notifications.error_interval = 600
 
 if not state.configfile_exists():
     state.write(commented=False)

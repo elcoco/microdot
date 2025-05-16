@@ -193,4 +193,3 @@ This file is automatically placed in the directory when added to microdot.
 
 ## Sync algorithm
 Sync algorithm is based on [this](https://unterwaditzer.net/2016/sync-algorithm.html) article by [Markus Unterwaditzer](https://unterwaditzer.net/)
-TODO: describe the sync algorithm

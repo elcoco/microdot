@@ -88,7 +88,7 @@ class Config(NestedNamespace):
             path = self._config_path
 
         if not path.parent.is_dir():
-            path.parent.mkdir()
+            path.parent.mkdir(parents=True)
             logger.info(f"Created directory: {path}")
 
         with open(path, 'w') as outfile:
